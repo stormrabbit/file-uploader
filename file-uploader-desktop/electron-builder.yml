@@ -1,0 +1,60 @@
+appId: com.fileuploader.app
+productName: FileUploader
+
+directories:
+  output: dist
+
+files:
+  - electron/**
+  - package.json
+  - "!node_modules/**"
+  - "!openspec/**"
+  - "!scripts/**"
+  - "!docs/**"
+  - "!**/*.md"
+  - "!**/*.mjs"
+  - "!dist${/*}"
+
+# server 与 web 资源需以普通文件形式存在于 Contents/Resources/resources/，
+# 供 electron/main.js 通过 process.resourcesPath 直接读取，
+# 因此使用 extraResources（而非 files，files 会被打进 app.asar）。
+extraResources:
+  - from: resources
+    to: resources
+    filter:
+      - "**/*"
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  identity: null
+
+dmg:
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 170
+      type: file
+    - x: 410
+      y: 170
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  signingHashAlgorithms: null
+  sign: null
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

@@ -1,0 +1,22 @@
+version: "3"
+services:
+  file-uploader-pc:
+    restart: always
+    image: nginx:1.17.3
+    container_name: file-uploader-pc
+    # network_mode: host
+    ports:
+      - "38903:80"
+    volumes:
+      - ./conf/www.file-uploader.conf:/etc/nginx/nginx.conf
+      - ./dist:/usr/share/nginx/html
+  file-uploader-moble:
+    restart: always
+    image: nginx:1.17.3
+    container_name: file-uploader-moble
+    # network_mode: host
+    ports:
+      - "38904:80"
+    volumes:
+      - ./conf/m.file-uploader.conf:/etc/nginx/nginx.conf
+      - ./dist:/usr/share/nginx/html

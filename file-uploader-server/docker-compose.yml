@@ -1,0 +1,24 @@
+version: "3.0"
+
+services:
+    file-uploader-server:
+        container_name: file-uploader-server
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - "38902:38902"
+        restart: on-failure
+        environment:
+            - DATABASE_URL=file:/app/data/db.sqlite
+            - PORT=38902
+            - DATA_DIR=/app
+            - SKIP_MIGRATE=false
+        volumes:
+            - ./data:/app/data
+            - ./static:/app/static
+        networks:
+            - my-server_demo
+
+networks:
+    my-server_demo:

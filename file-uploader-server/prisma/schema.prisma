@@ -1,0 +1,24 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "darwin-arm64", "windows", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model File {
+  id             Int      @id @default(autoincrement())
+  fileName       String
+  nameSuffix     String   @default("")
+  nameWithSuffix String
+  fileUrl        String
+  fileMd5        String
+  size           Int
+  status         Int      @default(0)
+  createDate     DateTime @default(now())
+
+  @@index([fileMd5])
+  @@index([createDate])
+}

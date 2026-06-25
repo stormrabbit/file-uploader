@@ -1,0 +1,39 @@
+# Editor directories and files
+.vscode/*
+.claude
+.devin
+.vscode
+.windsurf
+!.vscode/extensions.json
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+
+# Flutter
+.dart_tool/
+*.iml
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+
+# SQLite (本地数据库,别把你妈那几千张照片的库传上去)
+*.sqlite
+*.db
+package-lock.json

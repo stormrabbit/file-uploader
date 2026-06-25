@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+out/
+resources/
+server-prod/
+.DS_Store
+
+# AI assistant local config
+.claude/
+
+# IDE local config
+.windsurf/
+package-lock.json
+# Logs
+*.log

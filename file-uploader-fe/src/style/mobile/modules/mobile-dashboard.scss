@@ -1,0 +1,30 @@
+.fuf-mobile-dashboard {
+  height: 100%;
+
+  &__idle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+
+  &__big-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: #1989fa;
+    color: #fff;
+    font-size: 20px;
+    gap: 12px;
+    box-shadow: 0 4px 16px rgba(25, 137, 250, 0.3);
+    cursor: pointer;
+
+    span {
+      font-weight: 500;
+    }
+  }
+}

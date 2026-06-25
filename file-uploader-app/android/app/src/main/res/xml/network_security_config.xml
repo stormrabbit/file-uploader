@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 全局允许 HTTP 明文流量，适用于内网 IP 不固定的场景 -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

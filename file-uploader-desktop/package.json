@@ -1,0 +1,28 @@
+{
+  "name": "file-uploader-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron desktop host that bundles file-uploader-server (NestJS) and file-uploader-fe (Vue 3) into a single installable app",
+  "author": "杨",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWNER/file-uploader-desktop.git"
+  },
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check-deps": "node scripts/check-deps-sync.js",
+    "prebuild": "npm run check-deps",
+    "build": "node scripts/prepare-resources.js",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --config.win.target=portable",
+    "dist:win-installer": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --config.win.target=nsis"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

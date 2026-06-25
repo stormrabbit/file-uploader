@@ -1,0 +1,59 @@
+
+.fuf-pc-main {
+  padding: 0;
+}
+
+/* Material Design 卡片悬浮效果：包裹 Header 操作按钮 */
+.fuf-pc-header__actions.fuf-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 4px 8px;
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3),
+              0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.fuf-pc-header__actions.fuf-card:hover {
+  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.3),
+              0 4px 8px 3px rgba(60, 64, 67, 0.15);
+}
+
+/* 卡片内的按钮在白色背景上改为深色文字 */
+.fuf-pc-header__actions.fuf-card .fuf-header-btn {
+  color: #444746 !important;
+}
+
+.fuf-pc-header__actions.fuf-card .fuf-header-btn:hover {
+  background: rgba(68, 71, 70, 0.08);
+}
+
+.fuf-pc-header__actions.fuf-card .fuf-header-btn:active {
+  background: rgba(68, 71, 70, 0.16);
+}
+
+/* 主操作按钮在卡片内保持主题色 */
+.fuf-pc-header__actions.fuf-card .fuf-header-btn--primary {
+  background: #1a73e8 !important;
+  color: #fff !important;
+}
+
+.fuf-pc-header__actions.fuf-card .fuf-header-btn--primary:hover {
+  background: #1967d2 !important;
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3),
+              0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+/* 分隔线在深色背景样式下隐藏，卡片内显示淡灰分隔 */
+.fuf-pc-header__actions.fuf-card .fuf-pc-header__divider {
+  background: rgba(68, 71, 70, 0.2);
+}
+
+/* 危险按钮在卡片内 */
+.fuf-pc-header__actions.fuf-card .fuf-header-btn--danger {
+  color: #d93025 !important;
+}
+
+.fuf-pc-header__actions.fuf-card .fuf-header-btn--danger:hover:not(:disabled) {
+  background: rgba(217, 48, 37, 0.08);
+  color: #d93025 !important;
+}

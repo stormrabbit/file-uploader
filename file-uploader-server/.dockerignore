@@ -1,0 +1,7 @@
+node_modules/
+dist/
+static/
+data/
+.env
+*.log
+.claude/

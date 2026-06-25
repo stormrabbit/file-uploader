@@ -1,0 +1,146 @@
+.fuf-file-grid {
+  --fuf-grid-cols: 6;
+  display: grid;
+  grid-template-columns: repeat(var(--fuf-grid-cols), 1fr);
+  gap: 16px;
+  padding: 16px 0;
+
+  @media (max-width: 1279px) {
+    --fuf-grid-cols: 3;
+  }
+
+  &__item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    transition: box-shadow 0.2s;
+
+    &:hover {
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+
+      .fuf-file-grid__actions {
+        opacity: 1;
+      }
+    }
+  }
+
+  &__image {
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    cursor: pointer;
+
+    .el-image {
+      width: 100%;
+      height: 100%;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+    }
+  }
+
+  &__file-icon {
+    width: 100%;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f5f7fa;
+    gap: 8px;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+
+  &__file-icon-emoji {
+    font-size: 48px;
+    line-height: 1;
+  }
+
+  &__file-icon-name {
+    font-size: 12px;
+    color: #606266;
+    text-align: center;
+    word-break: break-all;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  &__info {
+    padding: 8px 8px 4px;
+    text-align: center;
+    border-top: 1px solid #f0f2f5;
+  }
+
+  &__name {
+    font-size: 13px;
+    color: #303133;
+    word-break: break-all;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+  }
+
+  &__size {
+    margin-top: 2px;
+    font-size: 11px;
+    color: #909399;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid #f0f2f5;
+  }
+
+  &__actions-divider {
+    width: 1px;
+    background: #dadce0;
+    margin: 8px 0;
+    flex-shrink: 0;
+  }
+
+  &__action-btn {
+    flex: 1;
+    height: auto !important;
+    padding: 12px 8px !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    border-radius: 0 !important;
+    transition: background-color 0.15s ease;
+
+    &.el-button--primary {
+      color: #1a73e8 !important;
+
+      &:hover {
+        background: #e8f0fe !important;
+      }
+
+      &:active {
+        background: #d2e3fc !important;
+      }
+    }
+
+    &.el-button--danger {
+      color: #d93025 !important;
+
+      &:hover {
+        background: #fce8e6 !important;
+      }
+
+      &:active {
+        background: #f9d2cd !important;
+      }
+    }
+  }
+}
