@@ -27,9 +27,9 @@
 
 - [x] 5.1 执行 `npm run dist:mac`，观察打包过程无报错（electron-builder 24.13.3，两平台均完成）
 - [x] 5.2 确认 `dist/FileUploader-*.dmg` 存在且大小合理（x64: 96MB，arm64: 91MB）
-- [ ] 5.3 打开 dmg，将 FileUploader.app 拖入 Applications
-- [ ] 5.4 首次启动（右键→打开），确认 loading 页出现
-- [ ] 5.5 等待约 5-10s，确认切换到前端 PC 页面
-- [ ] 5.6 上传一个文件，确认成功
-- [ ] 5.7 检查 `~/Library/Application Support/FileUploader/` 下存在 `data.db`、`logs/server.log`、上传后的 `static/` 目录
-- [ ] 5.8 退出应用，确认端口 38902 被释放（`lsof -ti :38902` 无结果）
+- [x] 5.3 打开 dmg，将 FileUploader.app 拖入 Applications
+- [x] 5.4 首次启动（右键→打开），确认 loading 页出现
+- [x] 5.5 等待约 5-10s，确认切换到前端 PC 页面
+- [x] 5.6 上传一个文件，确认成功
+- [x] 5.7 检查 `~/Library/Application Support/FileUploader/` 下存在 `data.db`、`logs/server.log`、上传后的 `static/` 目录
+- [x] 5.8 退出应用，确认端口 38902 被释放（`lsof -ti :38902` 无结果）
