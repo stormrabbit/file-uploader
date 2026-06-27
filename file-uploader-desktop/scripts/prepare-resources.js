@@ -7,6 +7,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const serverDir = path.join(root, '..', 'file-uploader-server');
 const feDir = path.join(root, '..', 'file-uploader-fe');
+const serverProdDir = path.join(root, 'server-prod');
 const resourcesServerDir = path.join(root, 'resources', 'server');
 const resourcesWebDir = path.join(root, 'resources', 'web');
 
@@ -28,6 +29,17 @@ function buildServer() {
   console.log('[prepare-resources] Server build complete.');
 }
 
+/**
+ * 确保原 server 目录的 .prisma/client/ 存在且为最新。
+ * nest build 不包含 prisma generate，首次环境或 .prisma/ 被清除时若跳过此步，
+ * 后续复制到 server-prod/ 的 engine 会缺失，导致运行时 Prisma Client 报错。
+ */
+function generatePrisma() {
+  console.log('\n[prepare-resources] Running prisma generate in server directory...');
+  execSync('npx prisma generate', { cwd: serverDir, stdio: 'inherit' });
+  console.log('[prepare-resources] prisma generate complete.');
+}
+
 function buildFrontend() {
   console.log('\n[prepare-resources] Building frontend (VITE_API_BASE_URL=http://127.0.0.1:38902/)...');
   execSync('npm run build', {
@@ -38,35 +50,59 @@ function buildFrontend() {
   console.log('[prepare-resources] Frontend build complete.');
 }
 
-function pruneServerDeps() {
-  console.log('\n[prepare-resources] Pruning server devDependencies (npm ci --omit=dev)...');
-  execSync('npm ci --omit=dev', { cwd: serverDir, stdio: 'inherit' });
-  console.log('[prepare-resources] Server devDependencies pruned.');
-}
+/**
+ * 在 server-prod/ 暂存目录中组装纯生产依赖，全程不修改原 server 目录的 node_modules。
+ * 流程：
+ *   1. 重建 server-prod/ 并复制 package.json / dist/ / prisma/
+ *   2. 在 server-prod/ 执行 npm ci --omit=dev（仅安装生产依赖）
+ *   3. 将原 server 目录已生成的 .prisma/ 覆盖复制到 server-prod/node_modules/.prisma/
+ *      （npm ci --omit=dev 跑完后 prisma CLI 不存在，postinstall 未执行，需手动补全 engine）
+ */
+function buildServerProd() {
+  console.log('\n[prepare-resources] Building server-prod/ staging directory...');
 
-function restoreServerDeps() {
-  console.log('\n[prepare-resources] Restoring server devDependencies (npm install)...');
-  execSync('npm install', { cwd: serverDir, stdio: 'inherit' });
-  console.log('[prepare-resources] Server devDependencies restored.');
-}
-
-function copyServer() {
-  console.log('\n[prepare-resources] Copying server resources...');
-  if (fs.existsSync(resourcesServerDir)) {
-    fs.rmSync(resourcesServerDir, { recursive: true, force: true });
+  // 重建暂存目录
+  if (fs.existsSync(serverProdDir)) {
+    fs.rmSync(serverProdDir, { recursive: true, force: true });
   }
-  fs.mkdirSync(resourcesServerDir, { recursive: true });
+  fs.mkdirSync(serverProdDir, { recursive: true });
 
-  for (const dir of ['dist', 'node_modules', 'prisma']) {
+  // 复制 package.json、dist/、prisma/ 到暂存目录
+  fs.cpSync(path.join(serverDir, 'package.json'), path.join(serverProdDir, 'package.json'));
+  for (const dir of ['dist', 'prisma']) {
     const src = path.join(serverDir, dir);
     if (fs.existsSync(src)) {
-      // dereference: true 摊平相对软链（主要是 .bin/ 下的 shim）。
-      // 默认行为会把相对软链改写成构建机的绝对路径，包到别的机器上断链。
-      fs.cpSync(src, path.join(resourcesServerDir, dir), { recursive: true, dereference: true });
+      fs.cpSync(src, path.join(serverProdDir, dir), { recursive: true });
     } else {
       console.warn(`[prepare-resources] WARNING: ${src} not found, skipping.`);
     }
   }
+
+  // 在暂存目录安装纯生产依赖
+  console.log('[prepare-resources] Running npm ci --omit=dev in server-prod/...');
+  execSync('npm ci --omit=dev', { cwd: serverProdDir, stdio: 'inherit' });
+
+  // 补全 Prisma query engine（postinstall 因缺少 prisma CLI 未执行，从原 server 目录复制）
+  const prismaSrc = path.join(serverDir, 'node_modules', '.prisma');
+  const prismaDest = path.join(serverProdDir, 'node_modules', '.prisma');
+  if (fs.existsSync(prismaSrc)) {
+    console.log('[prepare-resources] Copying .prisma/ engine from server directory...');
+    fs.cpSync(prismaSrc, prismaDest, { recursive: true, dereference: true });
+  } else {
+    console.warn('[prepare-resources] WARNING: .prisma/ not found in server node_modules, skipping.');
+  }
+
+  console.log('[prepare-resources] server-prod/ staging complete.');
+}
+
+function copyServer() {
+  console.log('\n[prepare-resources] Copying server-prod/ to resources/server/...');
+  if (fs.existsSync(resourcesServerDir)) {
+    fs.rmSync(resourcesServerDir, { recursive: true, force: true });
+  }
+  // dereference: true 摊平相对软链（主要是 .bin/ 下的 shim）。
+  // 默认行为会把相对软链改写成构建机的绝对路径，包到别的机器上断链。
+  fs.cpSync(serverProdDir, resourcesServerDir, { recursive: true, dereference: true });
   console.log('[prepare-resources] Server resources copied to resources/server/');
 }
 
@@ -113,10 +149,10 @@ function fixHtmlAssetPaths() {
 function main() {
   checkPreconditions();
   buildServer();
-  buildFrontend();
-  pruneServerDeps();
+  generatePrisma();
+  buildServerProd();
   copyServer();
-  restoreServerDeps();
+  buildFrontend();
   copyFrontend();
   console.log('\n[prepare-resources] All resources prepared successfully.');
 }

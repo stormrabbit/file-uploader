@@ -48,6 +48,9 @@ class _PhotoPickerPageState extends State<PhotoPickerPage> {
   /// 避免 setState 重建时重复触发 thumbnailData 导致图片闪烁
   final Map<String, Future<Uint8List?>> _thumbnailCache = {};
 
+  /// 是否正在执行全选预加载（显示全屏遮罩，禁用全选/确认按钮）
+  bool _isSelectAllLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -184,49 +187,87 @@ class _PhotoPickerPageState extends State<PhotoPickerPage> {
     });
   }
 
+  /// 预加载当前影集全部照片（不调用 setState，由调用方统一刷新）
+  /// 循环分页直到 _loadedCount >= _totalCount，每批合并到 _dateGroups
+  Future<void> _loadAllAssets() async {
+    if (_currentAlbum == null) return;
+    // 确保 _totalCount 已初始化
+    if (_totalCount == 0) {
+      _totalCount = await _currentAlbum!.assetCountAsync;
+    }
+    // 已全部加载则跳过
+    if (_loadedCount >= _totalCount) return;
+
+    while (_loadedCount < _totalCount) {
+      final page = _loadedCount ~/ _pageSize;
+      final assets = await _currentAlbum!.getAssetListPaged(
+        page: page,
+        size: _pageSize,
+      );
+      if (assets.isEmpty) break;
+      _loadedCount += assets.length;
+      final newGroups = _groupByDate(assets);
+      _mergeGroups(newGroups);
+    }
+  }
+
   /// 切换某日期分组的全选/全取消
-  void _toggleDateGroup(_DateGroup group) {
-    final allSelected = group.assets.every((a) => _selectedIds.contains(a.id));
-    setState(() {
-      if (allSelected) {
-        for (final a in group.assets) {
-          _selectedIds.remove(a.id);
-          _selectedList.removeWhere((x) => x.id == a.id);
-        }
-      } else {
-        for (final a in group.assets) {
-          if (!_selectedIds.contains(a.id)) {
-            _selectedIds.add(a.id);
-            _selectedList.add(a);
+  /// 先确保全部照片已加载，再按日期重新匹配 group 执行全选
+  Future<void> _toggleDateGroup(_DateGroup group) async {
+    final targetDate = group.date;
+    setState(() => _isSelectAllLoading = true);
+    try {
+      await _loadAllAssets();
+      // 加载完成后重新查找目标日期（引用可能已变）
+      final targetGroup = _dateGroups.where((g) => g.date == targetDate).firstOrNull;
+      if (targetGroup == null) return;
+      final allSelected = targetGroup.assets.every((a) => _selectedIds.contains(a.id));
+      setState(() {
+        if (allSelected) {
+          for (final a in targetGroup.assets) {
+            _selectedIds.remove(a.id);
+            _selectedList.removeWhere((x) => x.id == a.id);
+          }
+        } else {
+          for (final a in targetGroup.assets) {
+            if (!_selectedIds.contains(a.id)) {
+              _selectedIds.add(a.id);
+              _selectedList.add(a);
+            }
           }
         }
-      }
-    });
+      });
+    } finally {
+      if (mounted) setState(() => _isSelectAllLoading = false);
+    }
   }
 
-  /// 全选/全取消当前影集所有已加载照片
-  void _toggleSelectAll() {
-    final allLoaded = _dateGroups.expand((g) => g.assets).toList();
-    final allSelected = allLoaded.every((a) => _selectedIds.contains(a.id));
-    setState(() {
-      if (allSelected) {
-        for (final a in allLoaded) {
-          _selectedIds.remove(a.id);
-          _selectedList.removeWhere((x) => x.id == a.id);
-        }
-      } else {
-        for (final a in allLoaded) {
-          if (!_selectedIds.contains(a.id)) {
-            _selectedIds.add(a.id);
-            _selectedList.add(a);
+  /// 全选/全取消当前影集所有照片（先加载全部再操作）
+  Future<void> _toggleSelectAll() async {
+    setState(() => _isSelectAllLoading = true);
+    try {
+      await _loadAllAssets();
+      final allLoaded = _dateGroups.expand((g) => g.assets).toList();
+      final allSelected = allLoaded.every((a) => _selectedIds.contains(a.id));
+      setState(() {
+        if (allSelected) {
+          for (final a in allLoaded) {
+            _selectedIds.remove(a.id);
+            _selectedList.removeWhere((x) => x.id == a.id);
+          }
+        } else {
+          for (final a in allLoaded) {
+            if (!_selectedIds.contains(a.id)) {
+              _selectedIds.add(a.id);
+              _selectedList.add(a);
+            }
           }
         }
-      }
-    });
+      });
+    } finally {
+      if (mounted) setState(() => _isSelectAllLoading = false);
+    }
   }
-
-  /// 切换当前影集整体全选（AppBar 影集全选按钮）
-  void _toggleAlbumSelectAll() => _toggleSelectAll();
 
   // ── 确认回传 ─────────────────────────────────────────────
 
@@ -277,49 +318,59 @@ class _PhotoPickerPageState extends State<PhotoPickerPage> {
     final isAllSelected =
         allLoaded.isNotEmpty && allLoaded.every((a) => _selectedIds.contains(a.id));
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: colorScheme.inversePrimary,
-        title: GestureDetector(
-          onTap: _showAlbumPicker,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_currentAlbum?.name ?? '相册'),
-              const SizedBox(width: 4),
-              const Icon(Icons.arrow_drop_down, size: 20),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            backgroundColor: colorScheme.inversePrimary,
+            title: GestureDetector(
+              onTap: _showAlbumPicker,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_currentAlbum?.name ?? '相册'),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_drop_down, size: 20),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: _isSelectAllLoading ? null : _toggleSelectAll,
+                child: Text(
+                  isAllSelected ? '取消全选' : '全选',
+                  style: TextStyle(color: colorScheme.onPrimaryContainer),
+                ),
+              ),
             ],
           ),
+          body: _loading && _dateGroups.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    for (final group in _dateGroups) ...[
+                      _buildDateHeader(group),
+                      _buildPhotoGrid(group),
+                    ],
+                    if (_loading)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                  ],
+                ),
+          bottomNavigationBar: _buildBottomBar(),
         ),
-        actions: [
-          TextButton(
-            onPressed: _toggleAlbumSelectAll,
-            child: Text(
-              isAllSelected ? '取消全选' : '全选',
-              style: TextStyle(color: colorScheme.onPrimaryContainer),
-            ),
-          ),
-        ],
-      ),
-      body: _loading && _dateGroups.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                for (final group in _dateGroups) ...[
-                  _buildDateHeader(group),
-                  _buildPhotoGrid(group),
-                ],
-                if (_loading)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  ),
-              ],
-            ),
-      bottomNavigationBar: _buildBottomBar(),
+        // 全选预加载时的全屏遮罩，防止用户重复操作
+        if (_isSelectAllLoading) ...
+          const [
+            ModalBarrier(dismissible: false, color: Colors.black26),
+            Center(child: CircularProgressIndicator()),
+          ],
+      ],
     );
   }
 
@@ -337,7 +388,7 @@ class _PhotoPickerPageState extends State<PhotoPickerPage> {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: () => _toggleDateGroup(group),
+              onTap: _isSelectAllLoading ? null : () => _toggleDateGroup(group),
               child: Text(
                 allSelected ? '取消' : '全选',
                 style: const TextStyle(fontSize: 13, color: Colors.blue),
@@ -428,14 +479,15 @@ class _PhotoPickerPageState extends State<PhotoPickerPage> {
   /// 底部确认栏
   Widget _buildBottomBar() {
     final count = _selectedList.length;
+    final total = _totalCount > 0 ? '$_totalCount' : '--';
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: _onConfirm,
-            child: Text(count > 0 ? '确认（$count 张）' : '确认'),
+            onPressed: _isSelectAllLoading ? null : _onConfirm,
+            child: Text('确认 $count/$total'),
           ),
         ),
       ),
