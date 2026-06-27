@@ -36,6 +36,7 @@
     "@nestjs/platform-express": "^7.6.15",
     "@nestjs/swagger": "^4.8.0",
     "@prisma/client": "^5.22.0",
+    "chalk": "^3.0.0",
     "dayjs": "^1.10.4",
     "dotenv": "^17.4.2",
     "log4js": "^6.3.0",

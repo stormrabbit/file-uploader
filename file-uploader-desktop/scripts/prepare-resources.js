@@ -67,8 +67,10 @@ function buildServerProd() {
   }
   fs.mkdirSync(serverProdDir, { recursive: true });
 
-  // 复制 package.json、dist/、prisma/ 到暂存目录
+  // 复制 package.json、package-lock.json、dist/、prisma/ 到暂存目录
+  // NOTE: npm ci 要求目录中必须存在 package-lock.json
   fs.cpSync(path.join(serverDir, 'package.json'), path.join(serverProdDir, 'package.json'));
+  fs.cpSync(path.join(serverDir, 'package-lock.json'), path.join(serverProdDir, 'package-lock.json'));
   for (const dir of ['dist', 'prisma']) {
     const src = path.join(serverDir, dir);
     if (fs.existsSync(src)) {
