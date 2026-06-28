@@ -56,9 +56,9 @@ export class FilesController {
 
   @Patch('update/:md5')
   async updateFileDateByMd5(@Param('md5') md5: string) {
-    const fileInfo = ((await this.fileService.retrieveFileByCondition({
+    const fileInfo = (await this.fileService.retrieveFileByCondition({
       fileMd5: md5,
-    })) as unknown) as { id: string | number };
+    })) as unknown as { id: string | number };
     const newCreateDate = dayjs().format('YYYY-MM-DD HH:mm:ss');
     return this.fileService.updateFileById(Number(`${fileInfo.id}`), {
       createDate: newCreateDate,
@@ -76,9 +76,9 @@ export class FilesController {
 
   @Get('download')
   async downloadFileById(@Query('id') id: string, @Res() res: Response) {
-    const file = ((await this.fileService.retrieveFileByCondition({
+    const file = (await this.fileService.retrieveFileByCondition({
       id: Number(id),
-    })) as unknown) as {
+    })) as unknown as {
       fileUrl: string;
       nameWithSuffix: string;
     };
