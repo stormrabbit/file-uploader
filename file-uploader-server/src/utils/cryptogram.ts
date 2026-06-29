@@ -16,12 +16,11 @@ export function encryptFile2Md5(file: File): Promise<string> {
         hash.update(data, 'utf8');
       });
       stream.on('end', () => {
-        const md5 = hash.digest('hex');
-        console.log(`md5: ${md5}`);
-        resolve(md5);
+        resolve(hash.digest('hex'));
       });
+      // NOTE: stream 错误不会触发外层 try/catch，必须单独监听
+      stream.on('error', reject);
     } catch (error) {
-      console.warn(error);
       reject(error);
     }
   });

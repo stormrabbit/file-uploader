@@ -17,36 +17,48 @@ export class FilesService {
   async archiveUploadedFile(file: Express.Multer.File) {
     // file.path 已是 Multer 写入的绝对路径，无需再与 cwd 拼接
     const tmpPath = file.path;
-    const fileMd5 = await encryptFile2Md5(file);
-    const dateDir = dayjs().format('YYYY-MM-DD');
 
-    const staticDir = getStaticDir();
-    const storagePath = path.join(staticDir, dateDir);
-    fs.mkdirSync(storagePath, { recursive: true });
+    try {
+      const fileMd5 = await encryptFile2Md5(file);
+      const dateDir = dayjs().format('YYYY-MM-DD');
 
-    const fileDto = new CreateFileDTO();
-    fileDto.fileName = file.originalname;
-    fileDto.fileMd5 = fileMd5;
-    fileDto.size = file.size;
-    fileDto.createDate = dayjs().format('YYYY-MM-DD HH:mm:ss');
+      const staticDir = getStaticDir();
+      const storagePath = path.join(staticDir, dateDir);
+      fs.mkdirSync(storagePath, { recursive: true });
 
-    const sameNameFiles = await this.retrievePreciselyFilesByCondition({
-      fileName: file.originalname,
-    });
-    fileDto.nameSuffix =
-      sameNameFiles && sameNameFiles.length ? `${sameNameFiles.length}` : '';
-    fileDto.nameWithSuffix = combineFileNameAndSuffix(
-      fileDto.fileName,
-      fileDto.nameSuffix,
-    );
+      const fileDto = new CreateFileDTO();
+      // path.basename 防止客户端传入路径穿越字符（如 ../../etc/passwd）
+      fileDto.fileName = path.basename(file.originalname);
+      fileDto.fileMd5 = fileMd5;
+      fileDto.size = file.size;
 
-    const finalFilePath = path.join(storagePath, fileDto.nameWithSuffix);
-    fs.copyFileSync(tmpPath, finalFilePath);
-    fs.unlinkSync(tmpPath);
+      // NOTE: 同名文件去重依赖「先查 DB 再写入」，存在并发竞态条件。
+      // 单用户局域网场景下并发上传同名文件的概率极低，当前实现可接受。
+      // 若需彻底解决，需在 DB 对 nameWithSuffix 加唯一约束并实现重试逻辑。
+      const sameNameFiles = await this.retrievePreciselyFilesByCondition({
+        fileName: fileDto.fileName,
+      });
+      fileDto.nameSuffix =
+        sameNameFiles && sameNameFiles.length ? `${sameNameFiles.length}` : '';
+      fileDto.nameWithSuffix = combineFileNameAndSuffix(
+        fileDto.fileName,
+        fileDto.nameSuffix,
+      );
 
-    fileDto.fileUrl = `/static/${dateDir}/${fileDto.nameWithSuffix}`;
+      const finalFilePath = path.join(storagePath, fileDto.nameWithSuffix);
+      // renameSync 在同分区内是原子操作，避免 copyFileSync + unlinkSync 的双倍 I/O
+      fs.renameSync(tmpPath, finalFilePath);
 
-    return this.createFile(fileDto);
+      fileDto.fileUrl = `/static/${dateDir}/${fileDto.nameWithSuffix}`;
+
+      return this.createFile(fileDto);
+    } catch (err) {
+      // 业务异常时清理 temp 文件，避免垃圾堆积
+      if (fs.existsSync(tmpPath)) {
+        fs.unlinkSync(tmpPath);
+      }
+      throw err;
+    }
   }
 
   async retrieveFilesByConditions(query: QueryDTO) {
