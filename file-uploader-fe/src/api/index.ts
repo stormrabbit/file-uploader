@@ -12,14 +12,30 @@ export const isFileExistByMd5 = (md5: string): Promise<{ fileMd5: string }> =>
 export const retrieveFiles = (
   query: {
     page: number
-    page_size: number
+    page_size?: number
+    limit?: number
     fileName?: string
     createDate?: string
   } = { page: 1, page_size: 10 }
-) =>
-  axios.get('/files/info/list', {
-    params: query
+) => {
+  // Support both page_size and limit for flexibility
+  const params = { ...query }
+  if (params.limit && !params.page_size) {
+    params.page_size = params.limit
+  }
+  
+  // Validate pagination parameters
+  if (params.page < 1) {
+    params.page = 1
+  }
+  if (params.page_size && (params.page_size < 1 || params.page_size > 100)) {
+    params.page_size = Math.min(Math.max(params.page_size, 1), 100)
+  }
+  
+  return axios.get('/files/info/list', {
+    params
   })
+}
 
 /**
  * 上传文件

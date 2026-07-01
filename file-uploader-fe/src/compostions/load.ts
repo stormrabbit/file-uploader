@@ -11,6 +11,7 @@ interface FileListResult {
   }[]
   page: number
   total: number
+  hasMore?: boolean
 }
 import { computed, onMounted, ref } from 'vue'
 import { retrieveFiles, deleteFileById } from '@/api'
@@ -92,6 +93,30 @@ function useLoadFile() {
     }
   }
 
+  async function retrieveFilesPaginated(page: number = 1, pageSize: number = 20) {
+    loading.value = true
+    try {
+      const result = (await retrieveFiles({
+        page,
+        limit: pageSize
+      })) as FileListResult
+      
+      if (page === 1) {
+        fileResult.value = result
+      } else {
+        fileResult.value = {
+          ...fileResult.value,
+          list: [...fileResult.value.list, ...result.list],
+          hasMore: result.hasMore
+        }
+      }
+      
+      return result
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function handleDownload(row: { id: number | string }) {
     await downloadBlob(row.id)
   }
@@ -119,6 +144,7 @@ function useLoadFile() {
     sortMode,
     sortedFiles,
     retrieveFilesAction,
+    retrieveFilesPaginated,
     handleDownload,
     handleDelete,
     formatFileSizeAction

@@ -1,8 +1,11 @@
 <script setup name="Dashboard" lang="ts">
-import { ref, inject, watch } from 'vue'
+import { ref, inject, watch, onMounted } from 'vue'
+import { usePaginatedFiles } from '@/compostions/usePaginatedFiles'
 import useLoadFile from '@/compostions/load'
-import { deleteAllFiles, getConfig, updateStorageDir } from '@/api'
+import { deleteAllFiles, deleteFileById, getConfig, updateStorageDir } from '@/api'
 import { useMessageBox, useMessage } from '@/utils/messageHelper'
+import { isPaginationEnabled } from '@/utils/featureFlags'
+import { getPageSize } from '@/config/pagination'
 import FileGrid from './FileGrid.vue'
 import QrcodeConnectDialog from './QrcodeConnectDialog.vue'
 import type { useUploadQueue } from '@/compostions/useUploadQueue'
@@ -10,13 +13,50 @@ import type { useUploadQueue } from '@/compostions/useUploadQueue'
 const connectDialogVisible = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-const {
-  fileResult,
-  loading,
-  sortedFiles,
-  retrieveFilesAction,
-  handleDelete
-} = useLoadFile()
+// Feature flag: Use pagination if enabled, otherwise use legacy loading
+const usePagination = isPaginationEnabled()
+
+// Paginated files hook
+const paginatedFiles = usePaginatedFiles()
+// Legacy files hook
+const legacyFiles = useLoadFile()
+
+// Choose which hook to use based on feature flag
+const files = usePagination ? paginatedFiles.files : legacyFiles.sortedFiles
+const loading = usePagination ? paginatedFiles.loading : legacyFiles.loading
+const hasMore = usePagination ? paginatedFiles.hasMore : ref(false)
+const error = usePagination ? paginatedFiles.error : ref(null)
+
+// For compatibility with existing template, create fileResult and sortedFiles
+const fileResult = ref({ list: files, total: 0, page: 1 })
+const sortedFiles = ref(files)
+
+// Update fileResult and sortedFiles when files change
+watch(files, (newFiles) => {
+  fileResult.value.list = newFiles
+  sortedFiles.value = newFiles
+}, { deep: true })
+
+async function handleDelete(id: number) {
+  try {
+    await deleteFileById(id)
+    if (usePagination) {
+      await paginatedFiles.refresh()
+    } else {
+      await legacyFiles.retrieveFilesAction()
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+async function retrieveFilesAction() {
+  if (usePagination) {
+    await paginatedFiles.refresh()
+  } else {
+    await legacyFiles.retrieveFilesAction()
+  }
+}
 
 const queue = inject<ReturnType<typeof useUploadQueue>>('uploadQueue')!
 const { enqueue, startQueue, tasks } = queue
@@ -87,6 +127,15 @@ async function handleChangeStorageDir() {
     settingsLoading.value = false
   }
 }
+
+// Load initial photos on component mount
+onMounted(async () => {
+  if (usePagination) {
+    await paginatedFiles.fetchFiles(1, getPageSize())
+  } else {
+    await legacyFiles.retrieveFilesAction()
+  }
+})
 </script>
 
 <template>
@@ -131,7 +180,12 @@ async function handleChangeStorageDir() {
     <!-- 文件网格 -->
     <FileGrid
       :files="sortedFiles"
+      :loading="loading"
+      :has-more="usePagination ? hasMore : false"
+      :error="usePagination ? error : null"
       @delete="handleFileDelete"
+      @retry="usePagination ? paginatedFiles.retry : () => {}"
+      @load-more="usePagination ? paginatedFiles.fetchNextPage : () => {}"
     />
 
     <!-- 空状态 -->

@@ -4,6 +4,9 @@ import { downloadBlob } from '@/utils/download'
 import { ElMessage } from 'element-plus'
 import { getApiBaseUrl } from '@/utils/apiBase'
 import ImagePreview from './ImagePreview.vue'
+import LoadingIndicator from '@/components/common/LoadingIndicator.vue'
+import ErrorMessage from '@/components/common/ErrorMessage.vue'
+import ScrollSentinel from '@/components/common/ScrollSentinel.vue'
 
 /** 文件项接口（与 load.ts 中 FileListResult.list item 一致） */
 export interface FileItem {
@@ -42,10 +45,15 @@ const FILE_ICON_MAP: Record<string, string> = {
 
 const props = defineProps<{
   files: FileItem[]
+  loading?: boolean
+  hasMore?: boolean
+  error?: string | null
 }>()
 
 const emit = defineEmits<{
   (e: 'delete', id: number): void
+  (e: 'retry'): void
+  (e: 'loadMore'): void
 }>()
 
 /** 判断文件是否为图片类型 */
@@ -158,6 +166,25 @@ function handleDelete(file: FileItem) {
         </el-button>
       </div>
     </div>
+
+    <!-- Loading indicator -->
+    <LoadingIndicator 
+      v-if="loading && files.length > 0"
+      text="加载更多..."
+    />
+
+    <!-- Error message -->
+    <ErrorMessage 
+      v-if="error && files.length > 0"
+      :message="error"
+      @retry="emit('retry')"
+    />
+
+    <!-- Scroll sentinel for infinite scroll -->
+    <ScrollSentinel 
+      v-if="hasMore && !loading && !error"
+      @intersect="emit('loadMore')"
+    />
   </div>
 
   <ImagePreview
