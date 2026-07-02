@@ -6,7 +6,7 @@ import { TransformInterceptor } from './interceptor/transform.interceptor';
 import { DataInterceptor } from './interceptor/data.interceptor';
 import { AllExceptionFilter } from './filter/all-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { getStaticDir } from './config/runtime-paths';
+import { getStorageDir } from './config/runtime-paths';
 import 'dotenv/config';
 
 async function bootstrap() {
@@ -14,8 +14,15 @@ async function bootstrap() {
   app.use(express.json()); // For parsing application/json
   app.use(express.urlencoded({ extended: true }));
   // 将 static 目录映射为 /static 路径；每次请求时动态读取 storageDir，支持运行时切换
+  let cachedDir = '';
+  let cachedMiddleware: express.RequestHandler;
   app.use('/static', (req, res, next) => {
-    express.static(getStaticDir())(req, res, next);
+    const dir = getStorageDir();
+    if (dir !== cachedDir) {
+      cachedDir = dir;
+      cachedMiddleware = express.static(dir);
+    }
+    cachedMiddleware(req, res, next);
   });
   app.use(logger); // 引入日志中间件
   app.useGlobalInterceptors(new TransformInterceptor()); // 日志记录
@@ -23,8 +30,8 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionFilter()); // 引入异常过滤器
   app.enableCors(); // 允许跨域
   const options = new DocumentBuilder()
-    .setTitle('Gengar')
-    .setDescription('Nestjs 开发基础代码')
+    .setTitle('简单存储')
+    .setDescription('一个简单的局域网存储服务')
     .setVersion('1.0')
     .build();
   const document = SwaggerModule.createDocument(app, options);

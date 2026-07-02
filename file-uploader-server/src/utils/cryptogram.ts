@@ -12,8 +12,8 @@ export function encryptFile2Md5(file: File): Promise<string> {
       const _file: FileWithPath = file as FileWithPath;
       const stream = fs.createReadStream(_file.path);
       const hash = crypto.createHash('md5');
-      stream.on('data', (data: string) => {
-        hash.update(data, 'utf8');
+      stream.on('data', (data: Buffer) => {
+        hash.update(data);
       });
       stream.on('end', () => {
         resolve(hash.digest('hex'));
