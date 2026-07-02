@@ -8,7 +8,7 @@ import { UpdateFileDTO } from './dto/update.files.dto';
 import { QueryDTO } from './dto/query.files.dto';
 import { encryptFile2Md5 } from 'src/utils/cryptogram';
 import { combineFileNameAndSuffix } from 'src/utils/file';
-import { getStaticDir } from 'src/config/runtime-paths';
+import { getStorageDir } from 'src/config/runtime-paths';
 
 @Injectable()
 export class FilesService {
@@ -22,7 +22,7 @@ export class FilesService {
       const fileMd5 = await encryptFile2Md5(file);
       const dateDir = dayjs().format('YYYY-MM-DD');
 
-      const staticDir = getStaticDir();
+      const staticDir = getStorageDir();
       const storagePath = path.join(staticDir, dateDir);
       fs.mkdirSync(storagePath, { recursive: true });
 

@@ -4,7 +4,6 @@ process.env.NODE_ENV = 'test';
 
 import {
   getDataDir,
-  getStaticDir,
   getStorageDir,
   __resetForTest,
 } from './runtime-paths';
@@ -67,18 +66,6 @@ describe('runtime-paths', () => {
       process.env.DATA_DIR = '/tmp/fu-test';
       __resetForTest();
       expect(getStorageDir()).toBe('/tmp/fu-test/static');
-    });
-  });
-
-  describe('getStaticDir()', () => {
-    it('DATA_DIR 未设置时返回 cwd/static', () => {
-      expect(getStaticDir()).toBe(path.join(process.cwd(), 'static'));
-    });
-
-    it('DATA_DIR 设置后返回 DATA_DIR/static', () => {
-      process.env.DATA_DIR = '/tmp/fu-test';
-      __resetForTest();
-      expect(getStaticDir()).toBe('/tmp/fu-test/static');
     });
   });
 });

@@ -8,7 +8,7 @@ import { diskStorage } from 'multer';
 import * as nuid from 'nuid';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getStaticDir } from 'src/config/runtime-paths';
+import { getStorageDir } from 'src/config/runtime-paths';
 @Module({
   imports: [
     ServerInfoModule,
@@ -19,7 +19,7 @@ import { getStaticDir } from 'src/config/runtime-paths';
         // 相对路径 './static/temp' 会被解析为 '/static/temp' 而触发 EROFS。
         destination: (req, file, cb) => {
           // Multer 不会自动创建目标目录，需在写入前确保 temp 目录存在
-          const tempDir = path.join(getStaticDir(), 'temp');
+          const tempDir = path.join(getStorageDir(), 'temp');
           if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
           }

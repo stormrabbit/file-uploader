@@ -54,11 +54,6 @@ export function setStorageDir(dir: string): void {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
-/** @deprecated use getStorageDir() */
-export function getStaticDir(): string {
-  return getStorageDir();
-}
-
 export function __resetForTest(): void {
   if (process.env.NODE_ENV === 'test') {
     _dataDir = null;
