@@ -1,0 +1,14 @@
+{
+  "name": "file-uploader-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "局域网内文件上传 - monorepo 根目录（file-uploader-app 为独立 Flutter 项目，不属于此 workspace）",
+  "scripts": {
+    "start:fe": "pnpm --filter file-uploader-fe run dev",
+    "start:server": "pnpm --filter file-uploader-server run start:dev",
+    "start:desktop": "pnpm --filter file-uploader-desktop run start",
+    "build:fe": "pnpm --filter file-uploader-fe run build",
+    "build:server": "pnpm --filter file-uploader-server run build",
+    "build:desktop": "pnpm --filter file-uploader-desktop run build"
+  }
+}

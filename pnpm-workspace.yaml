@@ -1,0 +1,4 @@
+packages:
+  - 'file-uploader-fe'
+  - 'file-uploader-server'
+  - 'file-uploader-desktop'
