@@ -17,6 +17,10 @@ async function bootstrap() {
   let cachedDir = '';
   let cachedMiddleware: express.RequestHandler;
   app.use('/static', (req, res, next) => {
+    // 增加安全校验，防止路径穿越
+    if (req.path.startsWith('/temp/')) {
+      return res.sendStatus(404);
+    }
     const dir = getStorageDir();
     if (dir !== cachedDir) {
       cachedDir = dir;

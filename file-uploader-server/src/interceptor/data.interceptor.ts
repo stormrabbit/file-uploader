@@ -18,7 +18,7 @@ export class DataInterceptor implements NestInterceptor {
         const { message = '请求成功!', errorMsg = '' } = data || {};
         return {
           code: 200,
-          data: { ...data, message: undefined, errorMsg: undefined },
+          data: data ?? null,  
           message: errorMsg ? errorMsg : message,
         };
       }),

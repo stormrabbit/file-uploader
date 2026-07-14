@@ -28,9 +28,9 @@ export class AllExceptionFilter implements ExceptionFilter {
     `;
     Logger.error(logFormat);
     response.status(status).json({
-      statusCode: status,
-      error: exception.message,
-      msg: `${status >= 500 ? '访问出错' : '链接异常'}`,
+      code: status,
+      data: null,
+      message: status >= 500 ? '访问出错' : exception.message,
     });
   }
 }

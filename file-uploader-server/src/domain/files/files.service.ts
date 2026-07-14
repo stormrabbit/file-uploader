@@ -11,7 +11,7 @@ import { getStorageDir } from 'src/config/runtime-paths';
 
 @Injectable()
 export class FilesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async archiveUploadedFile(file: Express.Multer.File) {
 
@@ -29,7 +29,7 @@ export class FilesService {
         fs.unlinkSync(file.path);
         return existingFile;
       }
-      const fileMd5 = file.md5
+      const fileMd5 = file.md5;
       const dateDir = dayjs().format('YYYY-MM-DD');
 
       const staticDir = getStorageDir();
@@ -45,11 +45,11 @@ export class FilesService {
       // NOTE: 同名文件去重依赖「先查 DB 再写入」，存在并发竞态条件。
       // 单用户局域网场景下并发上传同名文件的概率极低，当前实现可接受。
       // 若需彻底解决，需在 DB 对 nameWithSuffix 加唯一约束并实现重试逻辑。
-      const sameNameFiles = await this.retrievePreciselyFilesByCondition({
+      const sameNameFilesCount = await this.countFilesByCondition({
         fileName: fileDto.fileName,
       });
       fileDto.nameSuffix =
-        sameNameFiles && sameNameFiles.length ? `${sameNameFiles.length}` : '';
+        sameNameFilesCount && sameNameFilesCount > 0 ? `${sameNameFilesCount}` : '';
       fileDto.nameWithSuffix = combineFileNameAndSuffix(
         fileDto.fileName,
         fileDto.nameSuffix,
@@ -69,7 +69,9 @@ export class FilesService {
         } else if (fs.existsSync(tmpPath)) {
           fs.unlinkSync(tmpPath);
         }
-        return await this.retrieveFileByCondition({ fileMd5: file.md5 });
+        const winner = await this.retrieveFileByCondition({ fileMd5: file.md5 });
+        if (!winner) throw err; 
+        return winner;
       }
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
       throw err;
@@ -120,6 +122,23 @@ export class FilesService {
       orderBy: { createDate: 'desc' },
     });
     return files.length ? files : null;
+  }
+
+  async countFilesByCondition(
+    query: {
+      id?: string | number;
+      fileMd5?: string;
+      fileName?: string;
+    } = {},
+  ) {
+    const count = await this.prisma.file.count({
+      where: {
+        ...(query.id ? { id: Number(query.id) } : {}),
+        ...(query.fileMd5 ? { fileMd5: query.fileMd5 } : {}),
+        ...(query.fileName ? { fileName: query.fileName } : {}),
+      },
+    });
+    return count;
   }
 
   async retrieveFileByCondition(

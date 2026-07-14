@@ -19,6 +19,7 @@ import { QueryDTO } from './dto/query.files.dto';
 import dayjs = require('dayjs');
 import { Response } from 'express';
 import * as fs from 'fs';
+import { getStorageDir } from 'src/config/runtime-paths';
 
 @ApiTags('文件上传')
 @Controller('files')
@@ -83,7 +84,8 @@ export class FilesController {
       nameWithSuffix: string;
     };
     // fileUrl 存的是相对路径（/static/...），下载时需还原为磁盘绝对路径
-    const absolutePath = path.join(process.cwd(), file.fileUrl);
+    const relative = file.fileUrl.replace(/^\/static\//, '');
+    const absolutePath = path.join(getStorageDir(), relative);
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.download(absolutePath, encodeURIComponent(file.nameWithSuffix));
   }
