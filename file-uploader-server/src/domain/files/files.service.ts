@@ -18,7 +18,7 @@ export class FilesService {
 
     // file.path 已是 Multer 写入的绝对路径，无需再与 cwd 拼接
     const tmpPath = file.path;
-
+     let finalFilePath: string | null = null;  
     try {
       if (!file.md5) {
         throw new Error('MD5 计算失败,storage engine 未返回 md5');
@@ -55,24 +55,21 @@ export class FilesService {
         fileDto.nameSuffix,
       );
 
-      const finalFilePath = path.join(storagePath, fileDto.nameWithSuffix);
+      finalFilePath  = path.join(storagePath, fileDto.nameWithSuffix);
       // renameSync 在同分区内是原子操作，避免 copyFileSync + unlinkSync 的双倍 I/O
-      fs.renameSync(tmpPath, finalFilePath);
+      fs.renameSync(tmpPath, finalFilePath );
 
       fileDto.fileUrl = `/static/${dateDir}/${fileDto.nameWithSuffix}`;
 
-      return this.createFile(fileDto);
+      return await this.createFile(fileDto);
     } catch (err) {
       if (err.code === 'P2002') {
         // 把刚 rename 过去的文件删掉(它是重复的)
-        fs.unlinkSync(tmpPath);
+        fs.unlinkSync(finalFilePath!);
         // 返回对方插进去的那条记录
         return await this.retrieveFileByCondition({ fileMd5: file.md5 });
       }
-      // 业务异常时清理 temp 文件，避免垃圾堆积
-      if (fs.existsSync(tmpPath)) {
-        fs.unlinkSync(tmpPath);
-      }
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
       throw err;
     }
   }

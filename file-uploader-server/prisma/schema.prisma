@@ -19,6 +19,5 @@ model File {
   status         Int      @default(0)
   createDate     DateTime @default(now())
 
-  @@index([fileMd5])
   @@index([createDate])
 }
