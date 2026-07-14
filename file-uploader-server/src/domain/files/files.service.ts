@@ -6,7 +6,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateFileDTO } from './dto/create.files.dto';
 import { UpdateFileDTO } from './dto/update.files.dto';
 import { QueryDTO } from './dto/query.files.dto';
-import { encryptFile2Md5 } from 'src/utils/cryptogram';
 import { combineFileNameAndSuffix } from 'src/utils/file';
 import { getStorageDir } from 'src/config/runtime-paths';
 
@@ -15,11 +14,22 @@ export class FilesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async archiveUploadedFile(file: Express.Multer.File) {
+
+
     // file.path 已是 Multer 写入的绝对路径，无需再与 cwd 拼接
     const tmpPath = file.path;
 
     try {
-      const fileMd5 = await encryptFile2Md5(file);
+      if (!file.md5) {
+        throw new Error('MD5 计算失败,storage engine 未返回 md5');
+      }
+      // service 层处理
+      const existingFile = await this.retrieveFileByCondition({ fileMd5: file.md5 });
+      if (existingFile) {
+        fs.unlinkSync(file.path);
+        return existingFile;   
+      }
+      const fileMd5 = file.md5
       const dateDir = dayjs().format('YYYY-MM-DD');
 
       const staticDir = getStorageDir();
@@ -53,6 +63,12 @@ export class FilesService {
 
       return this.createFile(fileDto);
     } catch (err) {
+      if (err.code === 'P2002') {
+        // 把刚 rename 过去的文件删掉(它是重复的)
+        fs.unlinkSync(tmpPath);
+        // 返回对方插进去的那条记录
+        return await this.retrieveFileByCondition({ fileMd5: file.md5 });
+      }
       // 业务异常时清理 temp 文件，避免垃圾堆积
       if (fs.existsSync(tmpPath)) {
         fs.unlinkSync(tmpPath);

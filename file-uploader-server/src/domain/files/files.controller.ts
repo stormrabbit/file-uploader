@@ -18,9 +18,8 @@ import { ServerInfoService } from '../server-info/server-info.service';
 import { QueryDTO } from './dto/query.files.dto';
 import dayjs = require('dayjs');
 import { Response } from 'express';
+import * as fs from 'fs';
 
-// import { FileNameEncodePipe } from './file.format.name.transform';
-// import { exec } from '../../utils/cmd';
 @ApiTags('文件上传')
 @Controller('files')
 export class FilesController {
@@ -40,11 +39,7 @@ export class FilesController {
     @UploadedFile()
     file: Express.Multer.File,
   ) {
-    const existingFile = await this.fileService.retrieveFileByCondition({ fileMd5: file.md5 });
-    if (existingFile) {
-      console.log('文件已存在');
-      return { message: '文件已存在' };
-    }
+
     return this.fileService.archiveUploadedFile(file);
   }
 

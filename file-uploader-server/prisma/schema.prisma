@@ -14,7 +14,7 @@ model File {
   nameSuffix     String   @default("")
   nameWithSuffix String
   fileUrl        String
-  fileMd5        String
+  fileMd5        String   @unique 
   size           Int
   status         Int      @default(0)
   createDate     DateTime @default(now())
