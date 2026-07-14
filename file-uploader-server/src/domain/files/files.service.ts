@@ -11,14 +11,14 @@ import { getStorageDir } from 'src/config/runtime-paths';
 
 @Injectable()
 export class FilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async archiveUploadedFile(file: Express.Multer.File) {
 
 
     // file.path 已是 Multer 写入的绝对路径，无需再与 cwd 拼接
     const tmpPath = file.path;
-     let finalFilePath: string | null = null;  
+    let finalFilePath: string | null = null;
     try {
       if (!file.md5) {
         throw new Error('MD5 计算失败,storage engine 未返回 md5');
@@ -27,7 +27,7 @@ export class FilesService {
       const existingFile = await this.retrieveFileByCondition({ fileMd5: file.md5 });
       if (existingFile) {
         fs.unlinkSync(file.path);
-        return existingFile;   
+        return existingFile;
       }
       const fileMd5 = file.md5
       const dateDir = dayjs().format('YYYY-MM-DD');
@@ -55,18 +55,20 @@ export class FilesService {
         fileDto.nameSuffix,
       );
 
-      finalFilePath  = path.join(storagePath, fileDto.nameWithSuffix);
+      finalFilePath = path.join(storagePath, fileDto.nameWithSuffix);
       // renameSync 在同分区内是原子操作，避免 copyFileSync + unlinkSync 的双倍 I/O
-      fs.renameSync(tmpPath, finalFilePath );
+      fs.renameSync(tmpPath, finalFilePath);
 
       fileDto.fileUrl = `/static/${dateDir}/${fileDto.nameWithSuffix}`;
 
       return await this.createFile(fileDto);
     } catch (err) {
       if (err.code === 'P2002') {
-        // 把刚 rename 过去的文件删掉(它是重复的)
-        fs.unlinkSync(finalFilePath!);
-        // 返回对方插进去的那条记录
+        if (finalFilePath && fs.existsSync(finalFilePath)) {
+          fs.unlinkSync(finalFilePath);
+        } else if (fs.existsSync(tmpPath)) {
+          fs.unlinkSync(tmpPath);
+        }
         return await this.retrieveFileByCondition({ fileMd5: file.md5 });
       }
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
