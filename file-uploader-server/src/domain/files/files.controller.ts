@@ -40,6 +40,11 @@ export class FilesController {
     @UploadedFile()
     file: Express.Multer.File,
   ) {
+    const existingFile = await this.fileService.retrieveFileByCondition({ fileMd5: file.md5 });
+    if (existingFile) {
+      console.log('文件已存在');
+      return { message: '文件已存在' };
+    }
     return this.fileService.archiveUploadedFile(file);
   }
 
