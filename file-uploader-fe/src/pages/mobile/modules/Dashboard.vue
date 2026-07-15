@@ -16,7 +16,8 @@ const {
   failedCount,
   enqueue,
   startQueue,
-  resetQueue
+  resetQueue,
+  retryFailed
 } = useUploadQueue()
 
 // 监听队列完成 → 转入 done 阶段
@@ -41,6 +42,11 @@ function handleFileSelected(fileInfo: any): void {
 function handleClose(): void {
   resetQueue()
   phase.value = 'idle'
+}
+
+function handleRetry(): void {
+  retryFailed()
+  phase.value = 'uploading'
 }
 
 // 检测是否在 Flutter App WebView 环境中（window.UploadBridge 由 Flutter 注入）
@@ -97,6 +103,7 @@ function handleAppUpload(): void {
       :total-count="totalCount"
       :failed-count="failedCount"
       @close="handleClose"
+      @retry="handleRetry"
     />
   </div>
 </template>

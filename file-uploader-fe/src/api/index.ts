@@ -41,13 +41,6 @@ export const uploadFile = (
 }
 
 /**
- * 已有同文件的话更新 md5
- * @param md5 
- * @returns 
- */
-export const updateFileDateByMd5 = (md5:string) => axios.patch(`/files/update/${md5}`)
-
-/**
  * 删除
  * @param id
  * @returns

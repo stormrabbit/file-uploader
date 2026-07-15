@@ -1,14 +1,14 @@
 .fuf-mobile-dashboard {
   height: 100%;
 
-  &__idle {
+  .fuf-mobile-dashboard__idle {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
   }
 
-  &__big-btn {
+  .fuf-mobile-dashboard__big-btn {
     display: flex;
     flex-direction: column;
     align-items: center;

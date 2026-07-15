@@ -55,16 +55,6 @@ export class FilesController {
     return this.fileService.clearAll();
   }
 
-  @Patch('update/:md5')
-  async updateFileDateByMd5(@Param('md5') md5: string) {
-    const fileInfo = (await this.fileService.retrieveFileByCondition({
-      fileMd5: md5,
-    })) as unknown as { id: string | number };
-    const newCreateDate = dayjs().format('YYYY-MM-DD HH:mm:ss');
-    return this.fileService.updateFileById(Number(`${fileInfo.id}`), {
-      createDate: newCreateDate,
-    });
-  }
   @Get('info/list')
   async retrieveFilesByConditions(@Query() query: QueryDTO) {
     return this.fileService.retrieveFilesByConditions(query);

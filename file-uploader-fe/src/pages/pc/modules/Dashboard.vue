@@ -157,23 +157,3 @@ async function handleChangeStorageDir() {
     </el-dialog>
   </div>
 </template>
-
-<style scoped>
-.fuf-settings__label {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 6px;
-}
-.fuf-settings__path {
-  font-size: 14px;
-  word-break: break-all;
-  padding: 8px 10px;
-  background: var(--el-fill-color-light);
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-.fuf-settings__hint {
-  font-size: 12px;
-  color: var(--el-text-color-placeholder);
-}
-</style>

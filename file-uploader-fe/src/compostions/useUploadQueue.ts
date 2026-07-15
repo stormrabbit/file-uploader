@@ -1,7 +1,8 @@
 import { ref, computed, onUnmounted } from 'vue'
-import { uploadFile, isFileExistByMd5, updateFileDateByMd5 } from '@/api'
+import { uploadFile, isFileExistByMd5 } from '@/api'
 import { file2Md5 } from '@/utils/md5'
 import type { AxiosProgressEvent } from 'axios'
+import { delayByMillisecond } from '@/utils/delay'
 
 export type UploadTaskStatus = 'pending' | 'uploading' | 'done' | 'failed' | 'cancelled'
 
@@ -11,9 +12,12 @@ export interface UploadTask {
   previewUrl: string
   status: UploadTaskStatus
   progress: number
+  retryCount: number
 }
 
 const UPLOAD_CONCURRENCY = 1
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY = 500
 
 export function useUploadQueue() {
   const tasks = ref<UploadTask[]>([])
@@ -45,10 +49,47 @@ export function useUploadQueue() {
       file,
       previewUrl: URL.createObjectURL(file),
       status: 'pending' as UploadTaskStatus,
-      progress: 0
+      progress: 0,
+      retryCount: 0
     }))
     tasks.value.push(...newTasks)
   }
+
+
+  // 上传 - 单独处理
+  async function attemptUpload(task: UploadTask): Promise<boolean> {
+    const signal = abortController.value?.signal
+    let md5: string = ''
+    try {
+      md5 = await file2Md5(task.file)
+    } catch (error) {
+      md5 = ''
+    }
+    if (signal?.aborted) {
+      throw new DOMException('aborted', 'AbortError')
+    }
+    if (md5) {
+      try {
+        const isExist = await isFileExistByMd5(md5)
+        if (isExist?.fileMd5) {
+          task.progress = 100
+          return true
+        }
+      } catch (error) {
+
+      }
+    }
+
+    try {
+      await uploadFile(task.file, (progressEvent: AxiosProgressEvent) => {
+        task.progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1))
+      }, signal)
+      return true
+    } catch (error) {
+      throw error
+    }
+  }
+
 
   async function processTask(task: UploadTask): Promise<void> {
     if (task.status === 'cancelled') return
@@ -56,34 +97,29 @@ export function useUploadQueue() {
     task.status = 'uploading'
     task.progress = 0
 
-    const signal = abortController.value?.signal
-
-    try {
-      const fileMd5 = await file2Md5(task.file)
-
-      if (signal?.aborted) {
-        task.status = 'cancelled'
+    for (; task.retryCount < MAX_ATTEMPTS; task.retryCount++) {
+      try {
+        await attemptUpload(task)
+        task.status = 'done'
         return
-      }
-
-      const isExist = await isFileExistByMd5(fileMd5)
-      if (isExist?.fileMd5) {
-        await updateFileDateByMd5(fileMd5)
-      } else {
-        await uploadFile(task.file, (progressEvent: AxiosProgressEvent) => {
-          if (progressEvent.total) {
-            task.progress = Math.round((progressEvent.loaded / progressEvent.total) * 100)
-          }
-        }, signal)
-      }
-
-      task.status = 'done'
-      task.progress = 100
-    } catch (err: any) {
-      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || signal?.aborted) {
-        task.status = 'cancelled'
-      } else {
+      } catch (err: any) {
+        if (
+          err?.name === 'CanceledError' ||
+          err?.name === 'AbortError' ||
+          err?.code === 'ERR_CANCELED' ||
+          abortController.value?.signal.aborted
+        ) {
+          task.status = 'cancelled'
+          return
+        }
+        if (task.retryCount < MAX_ATTEMPTS - 1) {
+          task.progress = 0
+          await delayByMillisecond(RETRY_DELAY * 2 ** task.retryCount)
+          continue
+        }
+        // 次数耗尽
         task.status = 'failed'
+        return
       }
     }
   }
@@ -113,6 +149,17 @@ export function useUploadQueue() {
 
       runNext()
     })
+  }
+
+  async function retryFailed(): Promise<void> {
+    const failed = tasks.value.filter(t => t.status === 'failed')
+    if (failed.length === 0) return
+    failed.forEach(t => {
+      t.status = 'pending'
+      t.retryCount = 0
+      t.progress = 0
+    })
+    await startQueue()
   }
 
   function cancelQueue(): void {
@@ -153,6 +200,7 @@ export function useUploadQueue() {
     enqueue,
     startQueue,
     cancelQueue,
-    resetQueue
+    resetQueue,
+    retryFailed
   }
 }

@@ -61,31 +61,3 @@ function handleClose() {
     </div>
   </el-dialog>
 </template>
-
-<style scoped lang="scss">
-.qrcode-connect {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 0 16px;
-
-  &__loading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--el-text-color-secondary);
-  }
-
-  &__img {
-    width: 240px;
-    height: 240px;
-  }
-
-  &__hint {
-    margin-top: 12px;
-    font-size: 13px;
-    color: var(--el-text-color-secondary);
-    text-align: center;
-  }
-}
-</style>

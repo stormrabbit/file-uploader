@@ -1,0 +1,26 @@
+
+.qrcode-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 16px;
+
+  .qrcode-connect__loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--el-text-color-secondary);
+  }
+
+  .qrcode-connect__img {
+    width: 240px;
+    height: 240px;
+  }
+
+  .qrcode-connect__hint {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--el-text-color-secondary);
+    text-align: center;
+  }
+}

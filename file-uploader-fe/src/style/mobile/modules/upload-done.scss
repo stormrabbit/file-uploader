@@ -7,12 +7,12 @@
   padding: 32px 24px;
   background: #f0f9eb;
 
-  &__icon {
+  .fuf-upload-done__icon {
     font-size: 64px;
     margin-bottom: 16px;
   }
 
-  &__message {
+  .fuf-upload-done__message {
     font-size: 28px;
     font-weight: 600;
     color: #333;
@@ -20,20 +20,23 @@
     margin-bottom: 8px;
   }
 
-  &__fail-info {
+  .fuf-upload-done__fail-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 14px;
     color: #ff976a;
     margin-bottom: 16px;
   }
 
-  &__pc-guide {
+  .fuf-upload-done__pc-guide {
     font-size: 18px;
     color: #969799;
     margin-bottom: 40px;
     text-align: center;
   }
 
-  &__close-btn {
+  .fuf-upload-done__close-btn {
     width: 100%;
     max-width: 280px;
     font-size: 18px;

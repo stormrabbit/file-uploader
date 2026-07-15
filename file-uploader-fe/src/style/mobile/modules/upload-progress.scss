@@ -6,7 +6,7 @@
   height: 100%;
   padding: 24px;
 
-  &__thumbnail {
+  .fuf-upload-progress__thumbnail {
     width: 200px;
     height: 200px;
     border-radius: 12px;
@@ -20,14 +20,14 @@
     }
   }
 
-  &__percentage {
+  .fuf-upload-progress__percentage {
     font-size: 48px;
     font-weight: 700;
     color: #1989fa;
     margin-bottom: 12px;
   }
 
-  &__status {
+  .fuf-upload-progress__status {
     font-size: 14px;
     color: #969799;
   }
