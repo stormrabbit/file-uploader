@@ -10,9 +10,7 @@ import { HashingDiskStorage } from 'src/storage/hashing-disk.storage';
   imports: [
     ServerInfoModule,
     MulterModule.register({
-      storage: new HashingDiskStorage(
-        () => path.join(getStorageDir(), 'temp'),
-      ),
+      storage: new HashingDiskStorage(() => path.join(getStorageDir(), 'temp')),
     }),
   ],
   controllers: [FilesController],

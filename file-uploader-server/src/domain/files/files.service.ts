@@ -14,8 +14,6 @@ export class FilesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async archiveUploadedFile(file: Express.Multer.File) {
-
-
     // file.path 已是 Multer 写入的绝对路径，无需再与 cwd 拼接
     const tmpPath = file.path;
     let finalFilePath: string | null = null;
@@ -24,7 +22,9 @@ export class FilesService {
         throw new Error('MD5 计算失败,storage engine 未返回 md5');
       }
       // service 层处理
-      const existingFile = await this.retrieveFileByCondition({ fileMd5: file.md5 });
+      const existingFile = await this.retrieveFileByCondition({
+        fileMd5: file.md5,
+      });
       if (existingFile) {
         fs.unlinkSync(file.path);
         return existingFile;
@@ -49,7 +49,9 @@ export class FilesService {
         fileName: fileDto.fileName,
       });
       fileDto.nameSuffix =
-        sameNameFilesCount && sameNameFilesCount > 0 ? `${sameNameFilesCount}` : '';
+        sameNameFilesCount && sameNameFilesCount > 0
+          ? `${sameNameFilesCount}`
+          : '';
       fileDto.nameWithSuffix = combineFileNameAndSuffix(
         fileDto.fileName,
         fileDto.nameSuffix,
@@ -69,8 +71,10 @@ export class FilesService {
         } else if (fs.existsSync(tmpPath)) {
           fs.unlinkSync(tmpPath);
         }
-        const winner = await this.retrieveFileByCondition({ fileMd5: file.md5 });
-        if (!winner) throw err; 
+        const winner = await this.retrieveFileByCondition({
+          fileMd5: file.md5,
+        });
+        if (!winner) throw err;
         return winner;
       }
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);

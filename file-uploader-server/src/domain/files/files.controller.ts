@@ -40,7 +40,6 @@ export class FilesController {
     @UploadedFile()
     file: Express.Multer.File,
   ) {
-
     return this.fileService.archiveUploadedFile(file);
   }
 
