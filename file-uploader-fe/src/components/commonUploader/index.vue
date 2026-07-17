@@ -13,7 +13,7 @@
 </template>
 <script lang="ts" setup>
 import { ref } from 'vue'
-import { uploadFile, isFileExistByMd5, updateFileDateByMd5 } from '@/api'
+import { uploadFile, isFileExistByMd5 } from '@/api'
 import type { UploadInstance, UploadUserFile } from 'element-plus'
 import { file2Md5 } from '@/utils/md5'
 import { watch } from 'vue';
@@ -64,9 +64,7 @@ const handleUpload = async (req: { file: File; header: any }) => {
     
     const isExist = await isFileExistByMd5(fileMd5)as {fileMd5?:string}
     let result
-    if (isExist.fileMd5) {
-      result = await updateFileDateByMd5(fileMd5) 
-    } else {
+    if (!isExist.fileMd5) {
       result = await uploadFile(file)
     }
 
