@@ -177,45 +177,61 @@ class UploadService {
           continue;
         }
 
-        // 通知开始（progress = 0）
-        onProgress?.call(asset.id, 0.0);
+        // 失败自动重试：最多重试 3 次（共至多 4 次尝试），指数退避 1s/2s/4s
+        const maxRetries = 3;
+        UploadResult? result;
 
-        // MD5 计算
-        final fileMd5 = await computeMd5(file);
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            // 通知开始（progress = 0）
+            onProgress?.call(asset.id, 0.0);
 
-        // 秒传判断
-        final existing = await isExist(fileMd5);
-        if (existing != null) {
-          final result = UploadResult(
-            assetId: asset.id,
-            fileId: existing.id,
-            fileUrl: existing.fileUrl,
-          );
-          results.add(result);
-          onProgress?.call(asset.id, 1.0);
-          onItemDone?.call(asset.id, result);
-          continue;
+            // MD5 计算
+            final fileMd5 = await computeMd5(file);
+
+            // 秒传判断
+            final existing = await isExist(fileMd5);
+            if (existing != null) {
+              result = UploadResult(
+                assetId: asset.id,
+                fileId: existing.id,
+                fileUrl: existing.fileUrl,
+              );
+              onProgress?.call(asset.id, 1.0);
+              break;
+            }
+
+            // 实际上传
+            final record = await uploadFile(
+              file,
+              onSendProgress: (sent, total) {
+                if (total > 0) {
+                  onProgress?.call(asset.id, sent / total);
+                }
+              },
+            );
+
+            result = UploadResult(
+              assetId: asset.id,
+              fileId: record.id,
+              fileUrl: record.fileUrl,
+            );
+            break;
+          } catch (e) {
+            if (attempt == maxRetries) {
+              rethrow;
+            }
+            final backoff = Duration(seconds: 1 << attempt); // 1s, 2s, 4s
+            debugPrint(
+                '[UploadService] asset ${asset.id} attempt ${attempt + 1} failed: $e, retrying in ${backoff.inSeconds}s');
+            await Future.delayed(backoff);
+          }
         }
 
-        // 实际上传
-        final record = await uploadFile(
-          file,
-          onSendProgress: (sent, total) {
-            if (total > 0) {
-              onProgress?.call(asset.id, sent / total);
-            }
-          },
-        );
-
-        final result = UploadResult(
-          assetId: asset.id,
-          fileId: record.id,
-          fileUrl: record.fileUrl,
-        );
-        results.add(result);
+        results.add(result!);
         onItemDone?.call(asset.id, result);
       } catch (e) {
-        // 上传失败：记录日志，跳过该文件
+        // 全部重试用尽仍失败：记录日志，跳过该文件
         debugPrint('[UploadService] asset ${asset.id} failed: $e');
         onItemDone?.call(asset.id, null);
       }
