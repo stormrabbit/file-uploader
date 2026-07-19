@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../config/upload_config.dart';
+import '../services/upload_queue.dart';
 import '../services/upload_service.dart';
 import '../widgets/upload_progress_sheet.dart';
 import 'photo_picker_page.dart';
@@ -62,8 +63,8 @@ class _WebViewPageState extends State<WebViewPage> {
     );
     if (assets == null || assets.isEmpty) return;
 
-    // Task 4.3/4.4 — 展示上传进度 BottomSheet 并绑定进度回调
-    final sheetKey = GlobalKey<UploadProgressSheetState>();
+    // Task 4.1/4.2 — 创建持有状态的上传队列，展示上传进度 BottomSheet
+    final queue = UploadQueue(service: _uploadService);
 
     if (!mounted) return;
     showModalBottomSheet<void>(
@@ -71,31 +72,22 @@ class _WebViewPageState extends State<WebViewPage> {
       isDismissible: false,
       enableDrag: false,
       builder: (_) => UploadProgressSheet(
-        key: sheetKey,
-        assets: assets,
+        queue: queue,
         onAllDone: () {
           if (mounted) Navigator.of(context).pop();
         },
       ),
     );
 
-    // Task 4.4 — 执行串行上传，将进度实时传递给 BottomSheet
-    final results = await _uploadService.uploadAssets(
-      assets,
-      onProgress: (assetId, progress) {
-        sheetKey.currentState?.updateProgress(assetId, progress);
-      },
-      onItemDone: (assetId, result) {
-        if (result != null) {
-          sheetKey.currentState?.markDone(assetId);
-        } else {
-          sheetKey.currentState?.markFailed(assetId);
-        }
-      },
-    );
+    // Task 4.2 — 启动队列处理，串行上传
+    await queue.start(assets);
 
-    // Task 4.5 — 全部完成后检查 mounted，通过 Bridge 回传结果
+    // Task 4.3 — 全部完成后检查 mounted，通过 Bridge 回传结果
     if (!mounted) return;
+    final results = queue.tasks
+        .where((t) => t.status == UploadTaskStatus.done)
+        .map((t) => t.result!)
+        .toList();
     final jsonString =
         jsonEncode(results.map((r) => r.toJson()).toList())
             .replaceAll("'", "\\'");

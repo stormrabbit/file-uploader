@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:photo_manager/photo_manager.dart';
 
 import '../config/upload_config.dart';
 
@@ -55,21 +53,10 @@ class UploadResult {
       };
 }
 
-/// 进度回调类型
-///
-/// [assetId]  当前处理的 asset id
-/// [progress] 0.0–1.0，上传进度
-typedef UploadProgressCallback = void Function(String assetId, double progress);
-
-/// 单张完成回调类型
-///
-/// [result] 成功时非 null，失败时为 null
-typedef UploadItemDoneCallback = void Function(
-    String assetId, UploadResult? result);
-
 /// App 原生上传服务
 ///
-/// 负责 MD5 计算、秒传判断、multipart 上传，以及串行队列控制。
+/// 负责 MD5 计算、秒传判断、multipart 上传等原子操作。
+/// 批量任务的状态与串行调度由 [UploadQueue] 负责。
 class UploadService {
   final String baseUrl;
 
@@ -148,95 +135,5 @@ class UploadService {
     final data = (resp.data as Map<String, dynamic>)['data']
         as Map<String, dynamic>;
     return FileRecord.fromJson(data);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Task 2.5 — 串行上传队列（最大并发 1）
-  // ---------------------------------------------------------------------------
-
-  /// 串行上传一批 AssetEntity。
-  ///
-  /// 每张照片按顺序执行：MD5 → 秒传判断 → 上传。
-  /// 单张失败时跳过，继续处理下一张。
-  ///
-  /// [onProgress]  实时上传进度（0.0–1.0）
-  /// [onItemDone]  每张完成/失败的回调
-  Future<List<UploadResult>> uploadAssets(
-    List<AssetEntity> assets, {
-    UploadProgressCallback? onProgress,
-    UploadItemDoneCallback? onItemDone,
-  }) async {
-    final results = <UploadResult>[];
-
-    // 串行处理，最大并发 1
-    for (final asset in assets) {
-      try {
-        final file = await asset.originFile;
-        if (file == null) {
-          onItemDone?.call(asset.id, null);
-          continue;
-        }
-
-        // 失败自动重试：最多重试 3 次（共至多 4 次尝试），指数退避 1s/2s/4s
-        const maxRetries = 3;
-        UploadResult? result;
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
-          try {
-            // 通知开始（progress = 0）
-            onProgress?.call(asset.id, 0.0);
-
-            // MD5 计算
-            final fileMd5 = await computeMd5(file);
-
-            // 秒传判断
-            final existing = await isExist(fileMd5);
-            if (existing != null) {
-              result = UploadResult(
-                assetId: asset.id,
-                fileId: existing.id,
-                fileUrl: existing.fileUrl,
-              );
-              onProgress?.call(asset.id, 1.0);
-              break;
-            }
-
-            // 实际上传
-            final record = await uploadFile(
-              file,
-              onSendProgress: (sent, total) {
-                if (total > 0) {
-                  onProgress?.call(asset.id, sent / total);
-                }
-              },
-            );
-
-            result = UploadResult(
-              assetId: asset.id,
-              fileId: record.id,
-              fileUrl: record.fileUrl,
-            );
-            break;
-          } catch (e) {
-            if (attempt == maxRetries) {
-              rethrow;
-            }
-            final backoff = Duration(seconds: 1 << attempt); // 1s, 2s, 4s
-            debugPrint(
-                '[UploadService] asset ${asset.id} attempt ${attempt + 1} failed: $e, retrying in ${backoff.inSeconds}s');
-            await Future.delayed(backoff);
-          }
-        }
-
-        results.add(result!);
-        onItemDone?.call(asset.id, result);
-      } catch (e) {
-        // 全部重试用尽仍失败：记录日志，跳过该文件
-        debugPrint('[UploadService] asset ${asset.id} failed: $e');
-        onItemDone?.call(asset.id, null);
-      }
-    }
-
-    return results;
   }
 }
