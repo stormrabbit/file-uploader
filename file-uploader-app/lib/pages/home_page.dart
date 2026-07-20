@@ -78,7 +78,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
-            errorBuilder: (context, error, child) {
+            errorBuilder: (context, error) {
               return _PermissionDeniedView(
                 onRetry: () => _controller.start(),
               );
