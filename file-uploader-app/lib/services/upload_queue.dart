@@ -86,6 +86,18 @@ class UploadQueue extends ChangeNotifier {
       return;
     }
 
+    String fileMd5;
+    try {
+      fileMd5 = await service.computeMd5(file);
+    } catch (e) {
+      task
+        ..status = UploadTaskStatus.failed
+        ..error = e;
+      notifyListeners();
+      debugPrint('[UploadQueue] asset ${asset.id} MD5 failed: $e');
+      return;
+    }
+
     const maxRetries = 3;
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -94,8 +106,7 @@ class UploadQueue extends ChangeNotifier {
         task.progress = 0.0;
         notifyListeners();
 
-        // MD5 计算
-        final fileMd5 = await service.computeMd5(file);
+    
 
         // 秒传判断
         final existing = await service.isExist(fileMd5);
@@ -113,11 +124,17 @@ class UploadQueue extends ChangeNotifier {
         }
 
         // 实际上传
+        // 进度变化超过 1% 才触发 notifyListeners，避免高频回调导致过多重建；
+        // sent == total（上传完成）时无条件通知，保证最终进度一定被感知到。
+        double lastNotifiedProgress = 0.0;
         final record = await service.uploadFile(
           file,
           onSendProgress: (sent, total) {
-            if (total > 0) {
-              task.progress = sent / total;
+            if (total <= 0) return;
+            final progress = sent / total;
+            if (progress - lastNotifiedProgress >= 0.01 || sent == total) {
+              lastNotifiedProgress = progress;
+              task.progress = progress;
               notifyListeners();
             }
           },

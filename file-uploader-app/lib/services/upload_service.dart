@@ -2,8 +2,18 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../config/upload_config.dart';
+
+/// 在独立 isolate 中计算文件 MD5，供 [UploadService.computeMd5] 通过 [compute] 调用。
+///
+/// 必须是顶层函数（或 static 方法），因为 [compute] 会把它发送到新的 isolate 执行，
+/// isolate 之间不能共享闭包/实例状态，只能传递可序列化的参数（此处为文件路径）。
+String _computeMd5InBackground(String filePath) {
+  final bytes = File(filePath).readAsBytesSync();
+  return md5.convert(bytes).toString();
+}
 
 /// 服务端文件记录（isExist / upload 接口返回结构）
 class FileRecord {
@@ -78,13 +88,13 @@ class UploadService {
   // Task 2.2 — MD5 计算
   // ---------------------------------------------------------------------------
 
-  /// 同步读取文件字节流计算 MD5。
+  /// 在独立 isolate 中计算文件 MD5，不阻塞 UI 线程（主 isolate）。
   ///
-  /// 在串行上传队列内调用，每次仅处理 1 张图，
-  /// 手机照片通常 3–10MB，计算耗时 <10ms，不会阻塞 UI。
+  /// 使用 [compute] 将读取文件字节 + 哈希计算都放到后台 isolate 执行，
+  /// 因此即使遇到较大文件（视频等）也不会造成主线程卡顿。
+  /// 由于 isolate 间只能传递可序列化数据，这里传的是文件路径而非 [File] 实例。
   Future<String> computeMd5(File file) async {
-    final bytes = await file.readAsBytes();
-    return md5.convert(bytes).toString();
+    return compute(_computeMd5InBackground, file.path);
   }
 
   // ---------------------------------------------------------------------------
