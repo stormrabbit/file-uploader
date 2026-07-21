@@ -1,10 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'upload_service.dart';
 
 /// 单个上传任务的状态
-enum UploadTaskStatus { waiting, uploading, done, failed }
+enum UploadTaskStatus { waiting, uploading, done, failed, cancelled }
 
 /// 队列中的单个上传任务
 class UploadTask {
@@ -35,19 +36,28 @@ class UploadQueue extends ChangeNotifier {
 
   final List<UploadTask> _tasks = [];
 
+  bool _cancelled = false;
+  CancelToken? _cancelToken;
+
   /// 当前任务列表（只读视图）
   List<UploadTask> get tasks => List.unmodifiable(_tasks);
+
+  /// 当前批次是否已被取消（用于调用方判断是否要跳过结果回传）。
+  bool get isCancelled => _cancelled;
 
   /// 启动一批新的上传任务。
   ///
   /// 会清空并重新初始化任务列表，随后按顺序串行处理每个任务。
   Future<void> start(List<AssetEntity> assets) async {
+    _cancelled = false;
+    _cancelToken = CancelToken();
     _tasks
       ..clear()
       ..addAll(assets.map((a) => UploadTask(asset: a)));
     notifyListeners();
 
     for (final task in _tasks) {
+      if (_cancelled) break;
       await _processTask(task);
     }
   }
@@ -66,8 +76,25 @@ class UploadQueue extends ChangeNotifier {
     notifyListeners();
 
     for (final task in failedTasks) {
+      if (_cancelled) break;
       await _processTask(task);
     }
+  }
+
+  /// 整体取消当前批次：中止正在进行的网络请求，停止后续任务处理，
+  /// 将所有等待中/上传中的任务标记为已取消。幂等，可安全重复调用。
+  void cancel() {
+    if (_cancelled) return;
+    _cancelled = true;
+    _cancelToken?.cancel();
+
+    for (final task in _tasks) {
+      if (task.status == UploadTaskStatus.waiting ||
+          task.status == UploadTaskStatus.uploading) {
+        task.status = UploadTaskStatus.cancelled;
+      }
+    }
+    notifyListeners();
   }
 
   /// 处理单个任务：MD5 → 秒传判断 → 上传。
@@ -90,6 +117,7 @@ class UploadQueue extends ChangeNotifier {
     try {
       fileMd5 = await service.computeMd5(file);
     } catch (e) {
+      if (_cancelled) return;
       task
         ..status = UploadTaskStatus.failed
         ..error = e;
@@ -98,18 +126,19 @@ class UploadQueue extends ChangeNotifier {
       return;
     }
 
+    if (_cancelled) return;
+
     const maxRetries = 3;
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      if (_cancelled) return;
       try {
         task.status = UploadTaskStatus.uploading;
         task.progress = 0.0;
         notifyListeners();
 
-    
-
         // 秒传判断
-        final existing = await service.isExist(fileMd5);
+        final existing = await service.isExist(fileMd5, cancelToken: _cancelToken);
         if (existing != null) {
           task
             ..status = UploadTaskStatus.done
@@ -138,6 +167,7 @@ class UploadQueue extends ChangeNotifier {
               notifyListeners();
             }
           },
+          cancelToken: _cancelToken,
         );
 
         task
@@ -151,6 +181,7 @@ class UploadQueue extends ChangeNotifier {
         notifyListeners();
         return;
       } catch (e) {
+        if (_cancelled) return;
         if (attempt == maxRetries) {
           task
             ..status = UploadTaskStatus.failed
@@ -163,6 +194,7 @@ class UploadQueue extends ChangeNotifier {
         debugPrint(
             '[UploadQueue] asset ${asset.id} attempt ${attempt + 1} failed: $e, retrying in ${backoff.inSeconds}s');
         await Future.delayed(backoff);
+        if (_cancelled) return;
       }
     }
   }

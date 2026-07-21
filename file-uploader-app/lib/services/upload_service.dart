@@ -107,9 +107,12 @@ class UploadService {
   /// - `data` 为完整 file 对象（含 id）表示已存在
   /// - `data` 为空对象 `{}` 表示不存在
   /// 网络异常时返回 null，降级为直接上传。
-  Future<FileRecord?> isExist(String fileMd5) async {
+  Future<FileRecord?> isExist(String fileMd5, {CancelToken? cancelToken}) async {
     try {
-      final resp = await _dio.get('/files/isExist/$fileMd5');
+      final resp = await _dio.get(
+        '/files/isExist/$fileMd5',
+        cancelToken: cancelToken,
+      );
       final data = (resp.data as Map<String, dynamic>?)?['data'];
       if (data == null) return null;
       final dataMap = data as Map<String, dynamic>;
@@ -131,6 +134,7 @@ class UploadService {
   Future<FileRecord> uploadFile(
     File file, {
     ProgressCallback? onSendProgress,
+    CancelToken? cancelToken,
   }) async {
     final fileName = file.path.split('/').last;
     final formData = FormData.fromMap({
@@ -141,6 +145,7 @@ class UploadService {
       '/files/upload',
       data: formData,
       onSendProgress: onSendProgress,
+      cancelToken: cancelToken,
     );
     final data = (resp.data as Map<String, dynamic>)['data']
         as Map<String, dynamic>;

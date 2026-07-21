@@ -76,11 +76,17 @@ class _WebViewPageState extends State<WebViewPage> {
         onAllDone: () {
           if (mounted) Navigator.of(context).pop();
         },
+        onCancelled: () {
+          if (mounted) Navigator.of(context).pop();
+        },
       ),
     );
 
     // Task 4.2 — 启动队列处理，串行上传
     await queue.start(assets);
+
+    // 用户主动取消：不回传任何结果给 WebView Bridge
+    if (queue.isCancelled) return;
 
     // Task 4.3 — 全部完成后检查 mounted，通过 Bridge 回传结果
     if (!mounted) return;

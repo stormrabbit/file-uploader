@@ -17,10 +17,14 @@ class UploadProgressSheet extends StatefulWidget {
   /// 全部完成后的回调
   final VoidCallback? onAllDone;
 
+  /// 用户主动点击「取消上传」后的回调
+  final VoidCallback? onCancelled;
+
   const UploadProgressSheet({
     super.key,
     required this.queue,
     this.onAllDone,
+    this.onCancelled,
   });
 
   @override
@@ -60,7 +64,8 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
     final allDone = tasks.every(
       (t) =>
           t.status == UploadTaskStatus.done ||
-          t.status == UploadTaskStatus.failed,
+          t.status == UploadTaskStatus.failed ||
+          t.status == UploadTaskStatus.cancelled,
     );
     if (!allDone) {
       _autoCloseScheduled = false;
@@ -115,6 +120,11 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
         tasks.where((t) => t.status == UploadTaskStatus.failed).length;
     final hasUploading =
         tasks.any((t) => t.status == UploadTaskStatus.uploading);
+    final hasPending = tasks.any(
+      (t) =>
+          t.status == UploadTaskStatus.waiting ||
+          t.status == UploadTaskStatus.uploading,
+    );
     final total = tasks.length;
     final canRetry = failedCount > 0 && !hasUploading;
 
@@ -135,6 +145,14 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
             onPressed: canRetry ? () => widget.queue.retryFailed() : null,
             child: const Text('重试失败项'),
           ),
+          if (hasPending)
+            TextButton(
+              onPressed: () {
+                widget.queue.cancel();
+                widget.onCancelled?.call();
+              },
+              child: const Text('取消上传'),
+            ),
         ],
       ),
     );
@@ -205,6 +223,12 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
         style: TextStyle(fontSize: 12, color: Colors.red),
       );
     }
+    if (task.status == UploadTaskStatus.cancelled) {
+      return const Text(
+        '已取消',
+        style: TextStyle(fontSize: 12, color: Colors.grey),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -238,6 +262,8 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
         return const Icon(Icons.check_circle, size: 18, color: Colors.green);
       case UploadTaskStatus.failed:
         return const Icon(Icons.error_outline, size: 18, color: Colors.red);
+      case UploadTaskStatus.cancelled:
+        return const Icon(Icons.block, size: 18, color: Colors.grey);
     }
   }
 }
