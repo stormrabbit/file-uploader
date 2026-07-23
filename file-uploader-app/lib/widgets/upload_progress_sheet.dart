@@ -9,8 +9,12 @@ import '../services/upload_queue.dart';
 ///
 /// 展示队列中每个任务的上传状态（等待中 / 上传中 / 成功 / 失败）和进度条，
 /// 数据源为 [UploadQueue]，通过监听其变化驱动 UI 刷新。
-/// 全部完成后延迟 1 秒自动收起（通过 [onAllDone] 回调通知外部）。
+/// 全部完成（或失败/取消）后不会自动收起，需用户点击「完成」按钮手动确认关闭
+/// （通过 [onAllDone] 回调通知外部）。
 /// 存在失败任务且队列空闲时，提供「重试失败项」按钮。
+/// 上传进行中（存在等待中/上传中任务）时拦截系统返回键，弹窗二次确认后才会
+/// 取消上传并关闭；界面被移除（dispose）时兜底调用 [UploadQueue.cancel]，
+/// 确保不会出现界面已关闭但上传仍在后台继续的情况。
 class UploadProgressSheet extends StatefulWidget {
   final UploadQueue queue;
 
@@ -36,48 +40,59 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
   /// 避免进度更新时重建导致图片闪烁
   final Map<String, Future<Uint8List?>> _thumbnailCache = {};
 
-  bool _autoCloseScheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.queue.addListener(_onQueueChanged);
-  }
-
   @override
   void dispose() {
-    widget.queue.removeListener(_onQueueChanged);
+    // 兜底：无论界面通过何种方式被移除（不仅是返回键/取消按钮），
+    // 只要队列尚未结束就强制取消，避免界面已关闭但上传仍在后台继续。
+    if (!_isAllDone(widget.queue.tasks) && !widget.queue.isCancelled) {
+      widget.queue.cancel();
+    }
     super.dispose();
   }
 
-  void _onQueueChanged() {
-    _checkAllDone();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Task 3.4 — 全部完成后延迟 1 秒自动收起
-  // ---------------------------------------------------------------------------
-
-  void _checkAllDone() {
-    final tasks = widget.queue.tasks;
-    if (tasks.isEmpty) return;
-    final allDone = tasks.every(
+  bool _isAllDone(List<UploadTask> tasks) {
+    if (tasks.isEmpty) return true;
+    return tasks.every(
       (t) =>
           t.status == UploadTaskStatus.done ||
           t.status == UploadTaskStatus.failed ||
           t.status == UploadTaskStatus.cancelled,
     );
-    if (!allDone) {
-      _autoCloseScheduled = false;
-      return;
-    }
-    if (_autoCloseScheduled) return;
-    _autoCloseScheduled = true;
+  }
 
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      widget.onAllDone?.call();
-    });
+  bool _hasPending(List<UploadTask> tasks) {
+    return tasks.any(
+      (t) =>
+          t.status == UploadTaskStatus.waiting ||
+          t.status == UploadTaskStatus.uploading,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 返回键拦截：上传进行中时二次确认，确认后取消上传并关闭
+  // ---------------------------------------------------------------------------
+
+  Future<void> _handleBackAttempt() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认关闭？'),
+        content: const Text('上传尚未完成，关闭后将停止上传，是否确认？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('继续上传'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('确认关闭'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    widget.queue.cancel();
+    widget.onCancelled?.call();
   }
 
   // ---------------------------------------------------------------------------
@@ -90,23 +105,31 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
       animation: widget.queue,
       builder: (_, __) {
         final tasks = widget.queue.tasks;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(tasks),
-              const Divider(height: 1),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+        final canPop = !_hasPending(tasks);
+        return PopScope(
+          canPop: canPop,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            _handleBackAttempt();
+          },
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(tasks),
+                const Divider(height: 1),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: tasks.length,
+                    itemBuilder: (_, index) => _buildItem(tasks[index]),
+                  ),
                 ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: tasks.length,
-                  itemBuilder: (_, index) => _buildItem(tasks[index]),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -127,6 +150,7 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
     );
     final total = tasks.length;
     final canRetry = failedCount > 0 && !hasUploading;
+    final allDone = !hasPending && total > 0;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -141,17 +165,20 @@ class UploadProgressSheetState extends State<UploadProgressSheet> {
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
-          TextButton(
-            onPressed: canRetry ? () => widget.queue.retryFailed() : null,
-            child: const Text('重试失败项'),
-          ),
+          if (canRetry)
+            TextButton(
+              onPressed: () => widget.queue.retryFailed(),
+              child: const Text('重试失败项'),
+            ),
           if (hasPending)
             TextButton(
-              onPressed: () {
-                widget.queue.cancel();
-                widget.onCancelled?.call();
-              },
+              onPressed: _handleBackAttempt,
               child: const Text('取消上传'),
+            ),
+          if (allDone)
+            FilledButton(
+              onPressed: () => widget.onAllDone?.call(),
+              child: const Text('完成'),
             ),
         ],
       ),

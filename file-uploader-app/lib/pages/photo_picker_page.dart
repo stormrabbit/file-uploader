@@ -79,10 +79,19 @@ class _PhotoPickerPageState extends State<PhotoPickerPage> {
   }
 
   /// 加载全部影集列表，默认选中第一个（所有照片）
+  ///
+  /// 显式指定按拍摄时间（createDate）降序排序，确保分页拉取顺序与本地
+  /// 按 [AssetEntity.createDateTime] 分组展示的顺序一致。若不传 filterOption，
+  /// orders 为空，原生侧会使用其内部默认排序字段（可能是插入/同步时间），
+  /// 与 createDateTime 不一致，导致第一页展示的“最新”分组实际是旧照片，
+  /// 直到全选触发全量加载重新排序后才会“变回”正确顺序。
   Future<void> _loadAlbums() async {
     final albums = await PhotoManager.getAssetPathList(
       type: RequestType.image,
       hasAll: true,
+      filterOption: FilterOptionGroup(
+        orders: [const OrderOption(type: OrderOptionType.createDate, asc: false)],
+      ),
     );
     if (!mounted) return;
 
