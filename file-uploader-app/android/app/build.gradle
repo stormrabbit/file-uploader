@@ -51,6 +51,13 @@ android {
         versionName flutterVersionName
     }
 
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def date = new Date().format("yyyyMMdd")
+            outputFileName = "file-uploader-v${variant.versionName}-${date}-${variant.buildType.name}.apk"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
