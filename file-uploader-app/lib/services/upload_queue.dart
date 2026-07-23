@@ -97,37 +97,16 @@ class UploadQueue extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 处理单个任务：MD5 → 秒传判断 → 上传。
+  /// 处理单个任务：获取原始文件 → MD5 → 秒传判断 → 上传。
   ///
   /// 失败自动重试：最多重试 3 次（共至多 4 次尝试），指数退避 1s/2s/4s。
+  /// 获取原始文件（`originFile`）也纳入同一套重试机制：iCloud 照片尚未下载完成、
+  /// 权限瞬时缺失等场景下 `originFile` 可能短暂返回 null，属于可重试的瞬时故障，
+  /// 不应在第一次尝试失败后就直接判定为永久失败。
   /// 全部重试用尽仍失败后，任务状态更新为 failed 并记录 error。
   Future<void> _processTask(UploadTask task) async {
     final asset = task.asset;
-
-    final file = await asset.originFile;
-    if (file == null) {
-      task
-        ..status = UploadTaskStatus.failed
-        ..error = 'originFile is null';
-      notifyListeners();
-      return;
-    }
-
-    String fileMd5;
-    try {
-      fileMd5 = await service.computeMd5(file);
-    } catch (e) {
-      if (_cancelled) return;
-      task
-        ..status = UploadTaskStatus.failed
-        ..error = e;
-      notifyListeners();
-      debugPrint('[UploadQueue] asset ${asset.id} MD5 failed: $e');
-      return;
-    }
-
-    if (_cancelled) return;
-
+    String? cachedMd5;
     const maxRetries = 3;
 
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -137,8 +116,16 @@ class UploadQueue extends ChangeNotifier {
         task.progress = 0.0;
         notifyListeners();
 
+        final file = await asset.originFile;
+        if (file == null) {
+          throw Exception('无法获取原图');
+        }
+
+        cachedMd5 ??= await service.computeMd5(file);
+
         // 秒传判断
-        final existing = await service.isExist(fileMd5, cancelToken: _cancelToken);
+        final existing =
+            await service.isExist(cachedMd5, cancelToken: _cancelToken);
         if (existing != null) {
           task
             ..status = UploadTaskStatus.done
