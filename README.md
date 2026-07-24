@@ -67,7 +67,7 @@
 | [`file-uploader-server`](./file-uploader-server) | 后端服务：接收上传、存储、提供管理 API | NestJS + Prisma + SQLite |
 | [`file-uploader-fe`](./file-uploader-fe) | 前端页面：PC 端浏览 + 手机端上传（同一套，多页隔离） | Vue 3 + TS + Vite |
 | [`file-uploader-desktop`](./file-uploader-desktop) | 桌面壳：把后端 + 前端打包成双击即用的 App | Electron |
-| [`file-uploader-app`](./file-uploader-app) | 安卓 App：扫码 + WebView + 原生相册批量选图 | Flutter |
+| [`file-uploader-app`](./file-uploader-app) | 安卓 App：扫码 + WebView + 原生相册批量选图，支持失败自动重试与取消 | Flutter |
 
 每个子目录有各自的 README，讲该端的技术细节与单独启动方式。
 
@@ -78,11 +78,27 @@
 **只想给家里人用 → 桌面版就够了。**
 桌面版（Electron）把后端和页面打包在一起，双击运行，无需任何配置。家人手机扫码即可上传。
 
-> 📦 桌面版目前需自行打包（见 [`file-uploader-desktop`](./file-uploader-desktop)）。
-> 预编译安装包会陆续上传到 [Releases](../../releases)：macOS 优先，Windows 开发中。
-> 手机端如需"按日期批量选图"，可装安卓 App（见 [`file-uploader-app`](./file-uploader-app)）；不装也能用浏览器扫码逐张传。
+**想自己跑源码 / 二次开发 → 看[从源码运行](#从源码运行开发者)。**
 
-**想自己跑源码 / 二次开发 → 看下面。**
+---
+
+## 下载
+
+前往 **[Releases](../../releases/latest)** 下载最新版本：
+
+| 平台 | 文件 | 说明 |
+|------|------|------|
+| **Windows** | `简单存储-Setup-x.x.x.exe` | 双击安装，装完桌面出图标 |
+| **Android** | `file-uploader-vx.x.x-xxxxxxxx-release.apk` | 需手机端批量选图时安装 |
+| macOS | — | 暂未提供，可自行打包 |
+
+安卓 App 不是必需的：**不装也能用手机浏览器扫码上传**，只是没有"按日期批量全选"。
+
+### 安装提示
+
+**Windows**：安装包未做代码签名，首次运行会提示"Windows 已保护你的电脑"。点 **「更多信息」→「仍要运行」** 即可。部分杀毒软件可能误报，需手动放行。
+
+**Android**：首次安装会提示"不允许安装未知来源应用"，按提示进入设置允许即可。首次打开需授予**照片和媒体**权限，否则无法选图。
 
 ---
 
@@ -90,30 +106,38 @@
 
 我的环境：
 - Node.js 22+
-- Flutter 3.7.0
+- pnpm 9+
+- Flutter（Dart SDK 3.0.5+）
 
-> 安卓 App 目前基于较旧的 Flutter 3.7.0 开发，在新版本下可能需要适配，正在升级稳定中。
+三个 Node 子项目由 **pnpm workspace** 统一管理，在根目录一次安装即可：
 
 ```bash
-# 克隆整个仓库
 git clone <repo-url>
 cd file-uploader
+pnpm install
 ```
 
-四端可独立启动，最小可用组合是 **server + fe**：
+最小可用组合是 **server + fe**，分别在两个终端启动：
 
 ```bash
 # 1) 启动后端（默认 :38902）
-cd file-uploader-server
-npm install
-npm run prisma:migrate
-npm run start:dev
+pnpm --filter file-uploader-server run prisma:migrate   # 首次需初始化数据库
+pnpm run start:server
 
 # 2) 另开一个终端，启动前端（默认 :38903）
-cd file-uploader-fe
-npm install
-npm run dev
+pnpm run start:fe
 ```
+
+根目录可用脚本：
+
+| 命令 | 作用 |
+|------|------|
+| `pnpm run start:server` | 启动后端（开发模式） |
+| `pnpm run start:fe` | 启动前端（开发模式） |
+| `pnpm run start:desktop` | 启动 Electron 桌面壳 |
+| `pnpm run build:server` / `build:fe` / `build:desktop` | 对应的构建命令 |
+
+> 安卓 App 是独立的 Flutter 工程，不在 pnpm workspace 内，需另行 `flutter pub get`。
 
 打包桌面版、构建安卓 App 的步骤，分别见 [`file-uploader-desktop`](./file-uploader-desktop) 和 [`file-uploader-app`](./file-uploader-app) 的 README。
 
